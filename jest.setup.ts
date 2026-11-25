@@ -13,3 +13,19 @@ jest.mock('@/features/scrambles/scramble-service', () => {
     }),
   };
 });
+
+// Charts draw with Skia, which needs a GPU canvas. Tests check the data and labels
+// passed to the charts instead; the data shaping is unit tested in lib/stats.
+jest.mock('@/components/charts', () => {
+  const { createElement } = jest.requireActual('react');
+  const { View } = jest.requireActual('react-native');
+  const chart = (name: string) =>
+    function MockChart(props: { accessibilityLabel: string }) {
+      return createElement(View, {
+        testID: name,
+        accessible: true,
+        accessibilityLabel: props.accessibilityLabel,
+      });
+    };
+  return { TrendChart: chart('trend-chart'), DistributionChart: chart('distribution-chart') };
+});

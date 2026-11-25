@@ -151,3 +151,24 @@ export function bestSingle(db: AppDatabase, puzzleId: PuzzleId): number | null {
     .get();
   return row?.best === null || row?.best === undefined ? null : Number(row.best);
 }
+
+/**
+ * Every live solve of a puzzle, grouped by session (each group oldest first).
+ * Personal-best averages are computed per session, so they never span two sessions.
+ */
+export function listSolvesBySession(db: AppDatabase, puzzleId: PuzzleId): Solve[][] {
+  const rows = db
+    .select({ solve: solves })
+    .from(solves)
+    .innerJoin(sessions, and(eq(sessions.id, solves.sessionId), isNull(sessions.deletedAt)))
+    .where(and(notDeleted, eq(solves.puzzleId, puzzleId)))
+    .orderBy(asc(solves.sessionId), asc(solves.solvedAt), asc(solves.createdAt))
+    .all();
+  const groups = new Map<string, Solve[]>();
+  for (const { solve } of rows) {
+    const list = groups.get(solve.sessionId) ?? [];
+    list.push(toSolve(solve));
+    groups.set(solve.sessionId, list);
+  }
+  return [...groups.values()];
+}

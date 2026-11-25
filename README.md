@@ -4,7 +4,7 @@ An offline-first speedcubing timer and training companion for Android (iOS secon
 
 CUBIQ combines a competition-grade timer, random-state scrambles, solve and session management, WCA-style statistics, a CFOP algorithm trainer and a beginner course. Everything works without an account or an internet connection.
 
-> Status: **Phase 3 (database and sessions)**. A working 3x3 timer with random-state scrambles, inspection and haptics. Solves, sessions and settings are saved on the device with SQLite, with manual time entry, solve notes and crash recovery. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the full checklist.
+> Status: **Phase 4 (statistics)**. A 3x3 timer with random-state scrambles, inspection and haptics; solves, sessions and settings saved on the device; WCA-style averages, personal bests and charts. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the full checklist.
 
 ## Tech stack
 

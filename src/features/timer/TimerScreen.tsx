@@ -11,6 +11,8 @@ import { listSolves } from '@/database/repositories/solves-repository';
 import { useScramble } from '@/features/scrambles/use-scramble';
 import { SessionSwitcherSheet } from '@/features/sessions/components/SessionSwitcherSheet';
 import { deleteSolveWithUndo } from '@/features/solves/actions';
+import { saveSolveAndCheckRecords } from '@/features/stats/record-solve';
+import { currentAverage, formatStat, toFinalTimes } from '@/lib/stats';
 import type { SolveResult, TimerConfig } from '@/lib/timer';
 import { useDataStore, useDbQuery } from '@/store/data-store';
 import { useSettingsStore } from '@/store/settings-store';
@@ -32,7 +34,7 @@ export function TimerScreen() {
   const activeSessionId = useDataStore((s) => s.activeSessionId);
   const session = useDbQuery((db) => getSession(db, activeSessionId));
   const solves = useDbQuery((db) => listSolves(db, activeSessionId));
-  const addSolve = useDataStore((s) => s.addSolve);
+  const times = useMemo(() => toFinalTimes(solves), [solves]);
   const setPenalty = useDataStore((s) => s.setPenalty);
   const markSolveStarted = useDataStore((s) => s.markSolveStarted);
   const markSolveEnded = useDataStore((s) => s.markSolveEnded);
@@ -40,6 +42,7 @@ export function TimerScreen() {
   const scramble = useScramble(puzzle.id);
   const [sheet, setSheet] = useState<'sessions' | 'manual' | null>(null);
   const [lastSolveId, setLastSolveId] = useState<string | null>(null);
+  const [recordMessage, setRecordMessage] = useState<string | null>(null);
 
   const config: TimerConfig = useMemo(
     () => ({
@@ -53,21 +56,26 @@ export function TimerScreen() {
   const onSolve = useCallback(
     (result: SolveResult, wasInterrupted: boolean) => {
       // The scramble on screen during the solve is the one stored with it; then it is replaced.
-      const solve = addSolve({
-        puzzleId: puzzle.id,
-        scramble: scramble.scramble?.notation ?? '',
-        scrambleGeneratedAt: scramble.scramble?.generatedAt ?? null,
-        rawTimeMs: result.rawMs,
-        penalty: result.penalty,
-        inspectionMs: result.inspectionMs,
-        source: 'timer',
-        wasInterrupted,
-        solvedAt: Date.now(),
-      });
+      const { solve, message } = saveSolveAndCheckRecords(
+        {
+          puzzleId: puzzle.id,
+          scramble: scramble.scramble?.notation ?? '',
+          scrambleGeneratedAt: scramble.scramble?.generatedAt ?? null,
+          rawTimeMs: result.rawMs,
+          penalty: result.penalty,
+          inspectionMs: result.inspectionMs,
+          source: 'timer',
+          wasInterrupted,
+          solvedAt: Date.now(),
+        },
+        // Shown under the time instead of a toast, which would cover the stats.
+        { announce: 'none' },
+      );
       setLastSolveId(solve.id);
+      setRecordMessage(message);
       scramble.next();
     },
-    [addSolve, scramble],
+    [scramble],
   );
 
   // A record of the running solve, so it can be recovered if the app is closed mid-solve.
@@ -86,7 +94,7 @@ export function TimerScreen() {
 
   const onManualSave = useCallback(
     (entry: { rawTimeMs: number; penalty: SolveResult['penalty'] }) => {
-      addSolve({
+      saveSolveAndCheckRecords({
         puzzleId: puzzle.id,
         scramble: scramble.scramble?.notation ?? '',
         scrambleGeneratedAt: scramble.scramble?.generatedAt ?? null,
@@ -97,7 +105,7 @@ export function TimerScreen() {
       });
       scramble.next();
     },
-    [addSolve, scramble],
+    [scramble],
   );
 
   const timer = useTimer({ config, onSolve, onRunningChange });
@@ -177,6 +185,11 @@ export function TimerScreen() {
           hideWhileRunning={settings.hideTimeWhileRunning}
           stoppedPenalty={lastSolve?.penalty}
         />
+        {state.status === 'stopped' && recordMessage && lastSolve ? (
+          <Text variant="bodyStrong" color="accent" align="center" accessibilityRole="alert">
+            {recordMessage}
+          </Text>
+        ) : null}
         <Text variant="caption" color="textSecondary" align="center">
           {hint}
         </Text>
@@ -187,7 +200,11 @@ export function TimerScreen() {
           {lastSolve ? (
             <LastSolveActions
               solve={lastSolve}
-              onPenalty={(penalty) => setPenalty(lastSolve.id, penalty)}
+              onPenalty={(penalty) => {
+                setPenalty(lastSolve.id, penalty);
+                // A penalty can undo the record; the stats screen always has the truth.
+                if (penalty !== lastSolve.penalty) setRecordMessage(null);
+              }}
               onDelete={() => {
                 deleteSolveWithUndo(lastSolve.id);
                 reset();
@@ -195,8 +212,14 @@ export function TimerScreen() {
             />
           ) : null}
           <View style={[styles.statsRow, { gap: theme.spacing.lg }]}>
-            <MiniStat label="Ao5" />
-            <MiniStat label="Ao12" />
+            <MiniStat
+              label="Ao5"
+              value={formatStat(currentAverage(times, 'ao5'), settings.decimals)}
+            />
+            <MiniStat
+              label="Ao12"
+              value={formatStat(currentAverage(times, 'ao12'), settings.decimals)}
+            />
             <MiniStat label="Solves" value={String(solves.length)} />
           </View>
         </View>

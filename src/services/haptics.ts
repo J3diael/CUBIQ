@@ -2,7 +2,7 @@ import * as Haptics from 'expo-haptics';
 
 import { useSettingsStore } from '@/store/settings-store';
 
-export type HapticCue = 'ready' | 'stop' | 'warning' | 'select';
+export type HapticCue = 'ready' | 'stop' | 'warning' | 'select' | 'record';
 
 /**
  * Fire-and-forget haptic feedback, respecting the user's setting.
@@ -17,7 +17,9 @@ export function playHaptic(cue: HapticCue): void {
         ? Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
         : cue === 'warning'
           ? Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)
-          : Haptics.selectionAsync();
+          : cue === 'record'
+            ? Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+            : Haptics.selectionAsync();
   // Devices without a vibration motor reject; that is fine.
   promise.catch(() => {});
 }
