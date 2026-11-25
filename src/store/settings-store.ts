@@ -8,6 +8,12 @@ import type { ThemePreference } from '@/theme/themes';
 export type HoldDurationMs = 0 | 300 | 550 | 1000;
 export type InspectionSeconds = 8 | 15 | 30;
 export type DisplayDecimals = 2 | 3;
+export const TIMER_SIZES = ['small', 'medium', 'large', 'huge'] as const;
+export type TimerSize = (typeof TIMER_SIZES)[number];
+export const TIMER_COLORS = ['default', 'accent', 'green', 'amber'] as const;
+export type TimerColor = (typeof TIMER_COLORS)[number];
+export const TIMER_BACKGROUNDS = ['default', 'surface', 'black'] as const;
+export type TimerBackground = (typeof TIMER_BACKGROUNDS)[number];
 
 export interface TimerSettings {
   inspectionEnabled: boolean;
@@ -19,6 +25,14 @@ export interface TimerSettings {
   /** Show "Solving" instead of the running time, for less distraction. */
   hideTimeWhileRunning: boolean;
   keepScreenAwake: boolean;
+  soundEnabled: boolean;
+  timerSize: TimerSize;
+  timerColor: TimerColor;
+  timerBackground: TimerBackground;
+  /** Show whole seconds while running (ignored when the time is hidden). */
+  secondsOnlyWhileRunning: boolean;
+  /** Let the Timer tab rotate to landscape. The rest of the app stays portrait. */
+  allowLandscape: boolean;
 }
 
 export const DEFAULT_TIMER_SETTINGS: TimerSettings = {
@@ -29,6 +43,12 @@ export const DEFAULT_TIMER_SETTINGS: TimerSettings = {
   decimals: 3,
   hideTimeWhileRunning: false,
   keepScreenAwake: true,
+  soundEnabled: false,
+  timerSize: 'medium',
+  timerColor: 'default',
+  timerBackground: 'default',
+  secondsOnlyWhileRunning: false,
+  allowLandscape: false,
 };
 
 export const DEFAULT_THEME_PREFERENCE: ThemePreference = 'dark';
@@ -62,6 +82,12 @@ const timerSettingsSchema = z.object({
     .catch(undefined),
   hideTimeWhileRunning: z.boolean().optional().catch(undefined),
   keepScreenAwake: z.boolean().optional().catch(undefined),
+  soundEnabled: z.boolean().optional().catch(undefined),
+  timerSize: z.enum(TIMER_SIZES).optional().catch(undefined),
+  timerColor: z.enum(TIMER_COLORS).optional().catch(undefined),
+  timerBackground: z.enum(TIMER_BACKGROUNDS).optional().catch(undefined),
+  secondsOnlyWhileRunning: z.boolean().optional().catch(undefined),
+  allowLandscape: z.boolean().optional().catch(undefined),
 });
 
 function withoutUndefined<T extends object>(value: T): Partial<T> {

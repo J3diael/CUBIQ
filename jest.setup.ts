@@ -29,3 +29,14 @@ jest.mock('@/components/charts', () => {
     };
   return { TrendChart: chart('trend-chart'), DistributionChart: chart('distribution-chart') };
 });
+
+// Native audio and orientation modules don't exist in Jest. Tests check that the
+// sound is requested (see services tests), not that a speaker plays it.
+jest.mock('expo-audio', () => ({
+  createAudioPlayer: jest.fn(() => ({ play: jest.fn(), seekTo: jest.fn(() => Promise.resolve()) })),
+}));
+jest.mock('expo-screen-orientation', () => ({
+  OrientationLock: { PORTRAIT_UP: 'PORTRAIT_UP' },
+  lockAsync: jest.fn(() => Promise.resolve()),
+  unlockAsync: jest.fn(() => Promise.resolve()),
+}));

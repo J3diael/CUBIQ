@@ -11,7 +11,7 @@ import {
   type TimerEvent,
   type TimerState,
 } from '@/lib/timer';
-import { playHaptic } from '@/services/haptics';
+import { feedback } from '@/services/feedback';
 
 /** Monotonic clock: unaffected by the user changing the device time. */
 export const now = () => performance.now();
@@ -49,6 +49,27 @@ export function useTimer({ config, onSolve, onRunningChange }: UseTimerOptions) 
   const cancelTouch = useCallback(() => dispatch({ type: 'cancel' }), [dispatch]);
   const reset = useCallback(() => dispatch({ type: 'reset' }), [dispatch]);
 
+  /**
+   * One action for screen readers, which can't hold: starts the timer (or inspection,
+   * then the solve) straight away, and stops it when it is running. The hold is treated
+   * as already done, so the solve starts at the moment of the double tap.
+   */
+  const activate = useCallback(() => {
+    const at = now();
+    setState((current) => {
+      // Only a press that leads to a hold is backdated; starting inspection is not.
+      const startsHold =
+        current.status === 'inspecting' ||
+        ((current.status === 'idle' || current.status === 'stopped') && !config.inspectionEnabled);
+      const events: TimerEvent[] = [
+        { type: 'pressIn', at: startsHold ? at - config.holdMs : at },
+        { type: 'tick', at },
+        { type: 'pressOut', at },
+      ];
+      return events.reduce((s, e) => timerReducer(s, e, config), current);
+    });
+  }, [config]);
+
   // Holding → ready after the hold time, without waiting for another touch.
   // Timers can fire slightly early relative to the monotonic clock, so re-check until due.
   useEffect(() => {
@@ -70,13 +91,13 @@ export function useTimer({ config, onSolve, onRunningChange }: UseTimerOptions) 
     const previous = previousStatus.current;
     previousStatus.current = state.status;
     if (previous === state.status) return;
-    if (state.status === 'ready') playHaptic('ready');
+    if (state.status === 'ready') feedback('ready');
     if (state.status === 'running') {
       interruptedRef.current = false;
       handleRunningChange(true);
     }
     if (state.status === 'stopped') {
-      playHaptic('stop');
+      feedback('stop');
       handleSolve(state.result);
     }
     if (previous === 'running') handleRunningChange(false);
@@ -92,7 +113,7 @@ export function useTimer({ config, onSolve, onRunningChange }: UseTimerOptions) 
     const timeouts = inspectionWarningsMs(config.inspectionMs)
       .map((at) => at - (now() - inspectionStart))
       .filter((delay) => delay > 0)
-      .map((delay) => setTimeout(() => playHaptic('warning'), delay));
+      .map((delay) => setTimeout(() => feedback('warning'), delay));
     return () => timeouts.forEach(clearTimeout);
   }, [inspectionStart, config.inspectionMs]);
 
@@ -130,5 +151,5 @@ export function useTimer({ config, onSolve, onRunningChange }: UseTimerOptions) 
     return () => subscription.remove();
   }, [busy]);
 
-  return { state, busy, pressIn, pressOut, cancelTouch, reset };
+  return { state, busy, pressIn, pressOut, cancelTouch, reset, activate };
 }

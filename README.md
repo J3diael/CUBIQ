@@ -4,7 +4,7 @@ An offline-first speedcubing timer and training companion for Android (iOS secon
 
 CUBIQ combines a competition-grade timer, random-state scrambles, solve and session management, WCA-style statistics, a CFOP algorithm trainer and a beginner course. Everything works without an account or an internet connection.
 
-> Status: **Phase 6 (beginner learning)**. A 3x3 timer with random-state scrambles, inspection and haptics; solves, sessions and settings saved on the device; WCA-style averages, personal bests and charts; 119 CFOP algorithms (F2L, OLL, PLL) with diagrams, flashcards with spaced repetition, your own algorithm library; and an 11-lesson beginner course with a notation guide. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the full checklist.
+> Status: **Phase 7 (polish and expansion)**. A timer for 10 puzzles with random-state scrambles, inspection and haptics; solves, sessions and settings saved on the device; WCA-style averages, personal bests and charts; 119 CFOP algorithms (F2L, OLL, PLL) with diagrams, flashcards with spaced repetition, your own algorithm library; an 11-lesson beginner course with a notation guide; goals, achievements, timer customisation and sound. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the full checklist.
 
 ## Tech stack
 

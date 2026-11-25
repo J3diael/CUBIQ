@@ -1,56 +1,14 @@
-import { Slot } from 'expo-router';
-import { fireEvent, renderRouter, screen } from 'expo-router/testing-library';
+import { fireEvent, screen } from 'expo-router/testing-library';
 
-import TabsLayout from '../(tabs)/_layout';
-import HomeScreen from '../(tabs)/index';
-import ProfileLayout from '../(tabs)/profile/_layout';
-import ProfileScreen from '../(tabs)/profile/index';
-import SettingsScreen from '../(tabs)/profile/settings';
-import SessionsLayout from '../(tabs)/sessions/_layout';
-import SessionsScreen from '../(tabs)/sessions/index';
-import TimerScreen from '../(tabs)/timer';
-import TrainLayout from '../(tabs)/train/_layout';
-import TrainScreen from '../(tabs)/train/index';
-import SessionDetailScreen from '../(tabs)/sessions/[sessionId]/index';
-import SessionStatsScreen from '../(tabs)/sessions/[sessionId]/stats';
-import SolveDetailScreen from '../solve/[solveId]';
-import { ToastHost } from '@/components/ui';
+import { renderApp } from '@/test-utils/render-app';
+
 import { getDatabase } from '@/database/client';
 import { getSetting } from '@/database/repositories/settings-repository';
 import { listSessions } from '@/database/repositories/sessions-repository';
 import { getSolve, listSolves } from '@/database/repositories/solves-repository';
 import { useDataStore } from '@/store/data-store';
 import { useSettingsStore } from '@/store/settings-store';
-import { ThemeProvider } from '@/theme';
 import { z } from 'zod';
-
-function renderApp(initialUrl = '/') {
-  return renderRouter(
-    {
-      // Wrap the real tab layout in the theme, as the root layout does in the app.
-      _layout: () => (
-        <ThemeProvider>
-          <Slot />
-          <ToastHost />
-        </ThemeProvider>
-      ),
-      '(tabs)/_layout': TabsLayout,
-      '(tabs)/index': HomeScreen,
-      '(tabs)/timer': TimerScreen,
-      '(tabs)/sessions/_layout': SessionsLayout,
-      '(tabs)/sessions/index': SessionsScreen,
-      '(tabs)/sessions/[sessionId]/index': SessionDetailScreen,
-      '(tabs)/sessions/[sessionId]/stats': SessionStatsScreen,
-      'solve/[solveId]': SolveDetailScreen,
-      '(tabs)/train/_layout': TrainLayout,
-      '(tabs)/train/index': TrainScreen,
-      '(tabs)/profile/_layout': ProfileLayout,
-      '(tabs)/profile/index': ProfileScreen,
-      '(tabs)/profile/settings': SettingsScreen,
-    },
-    { initialUrl },
-  );
-}
 
 describe('navigation', () => {
   it('shows the five tabs with Timer in the centre', async () => {
@@ -110,10 +68,39 @@ function addSolve(
 }
 
 describe('sessions', () => {
+  it('shows long sessions a page at a time', async () => {
+    const now = Date.now();
+    for (let i = 0; i < 105; i++) addSolve(10_000 + i, { solvedAt: now - 1000 + i });
+    const id = useDataStore.getState().activeSessionId;
+    await renderApp(`/sessions/${id}`);
+    expect(screen.getByText(/^#105 · /)).toBeOnTheScreen();
+    expect(screen.queryByText(/^#5 · /)).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Show 5 more' }));
+    expect(screen.getByText(/^#1 · /)).toBeOnTheScreen();
+  });
+
   it('starts with a default session that is active', async () => {
     await renderApp('/sessions');
     expect(screen.getByText('3x3 Practice')).toBeOnTheScreen();
     expect(screen.getByText('Active')).toBeOnTheScreen();
+  });
+
+  it('creates a session for another puzzle; the timer and home follow it', async () => {
+    await renderApp('/sessions');
+    await fireEvent.press(screen.getByRole('button', { name: 'New session' }));
+    await fireEvent.changeText(screen.getByLabelText('Name'), 'Pyraminx');
+    await fireEvent.press(screen.getByRole('button', { name: 'Pyra' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Create session' }));
+    const created = listSessions(getDatabase()).find((s) => s.name === 'Pyraminx');
+    expect(created?.puzzleId).toBe('pyram');
+    expect(screen.getByText('Pyra · 0 solves')).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByRole('tab', { name: 'Home' }));
+    expect(screen.getByText('Personal bests · Pyra')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('tab', { name: 'Timer' }));
+    expect(
+      screen.getByRole('button', { name: 'Session: Pyraminx. Change session' }),
+    ).toBeOnTheScreen();
   });
 
   it('creates a session with a method and makes it active', async () => {
@@ -129,7 +116,7 @@ describe('sessions', () => {
     const created = listSessions(getDatabase()).find((s) => s.name === 'Roux practice');
     expect(created).toMatchObject({ method: 'roux', puzzleId: '333' });
     expect(useDataStore.getState().activeSessionId).toBe(created?.id);
-    expect(screen.getByText('0 solves · Roux')).toBeOnTheScreen();
+    expect(screen.getByText('3x3 · 0 solves · Roux')).toBeOnTheScreen();
   });
 
   it('shows a session with its solves and simple numbers, then renames it', async () => {
@@ -205,6 +192,9 @@ describe('statistics', () => {
     await renderApp('/');
     expect(screen.getByLabelText('Ao5: 12.000')).toBeOnTheScreen();
     expect(screen.getByLabelText('Ao12: no data yet')).toBeOnTheScreen();
+    // The active session's current averages sit next to the personal bests.
+    expect(screen.getByLabelText('Ao5 now: 12.000')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Solves: 5')).toBeOnTheScreen();
   });
 });
 

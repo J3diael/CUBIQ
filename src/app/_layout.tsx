@@ -13,6 +13,7 @@ import { useAppBootstrap } from '@/features/bootstrap/use-app-bootstrap';
 import { InterruptedSolveSheet } from '@/features/timer/components/InterruptedSolveSheet';
 import { useAppFonts } from '@/hooks/use-app-fonts';
 import { ScrambleEngineHost } from '@/services/scramble-engine/ScrambleEngineHost';
+import { lockPortrait } from '@/services/orientation';
 import { ThemeProvider, useTheme } from '@/theme';
 import { toNavigationTheme } from '@/theme/navigation-theme';
 
@@ -22,6 +23,11 @@ export default function RootLayout() {
   const fontsReady = useAppFonts();
   const { state: data, retry } = useAppBootstrap();
   const ready = fontsReady && data.status !== 'loading';
+
+  // Portrait everywhere; the Timer tab unlocks rotation when the user allows it.
+  useEffect(() => {
+    lockPortrait();
+  }, []);
 
   // The splash screen stays up until fonts and saved data are loaded.
   useEffect(() => {

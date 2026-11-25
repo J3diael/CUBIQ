@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { Keyboard } from 'lucide-react-native';
+import Animated, { FadeIn, ReduceMotion } from 'react-native-reanimated';
 
 import { Chip, IconButton, Screen, Text } from '@/components/ui';
 import { DEFAULT_PUZZLE_ID, PUZZLES } from '@/constants/puzzles';
@@ -17,7 +18,9 @@ import type { SolveResult, TimerConfig } from '@/lib/timer';
 import { useDataStore, useDbQuery } from '@/store/data-store';
 import { useSettingsStore } from '@/store/settings-store';
 import { useUiStore } from '@/store/ui-store';
+import { allowAnyOrientation, lockPortrait } from '@/services/orientation';
 import { useTheme } from '@/theme';
+import { motion } from '@/theme/tokens';
 
 import { LastSolveActions } from './components/LastSolveActions';
 import { ManualEntrySheet } from './components/ManualEntrySheet';
@@ -26,13 +29,17 @@ import { TimerDisplay } from './components/TimerDisplay';
 import { useTimer } from './use-timer';
 
 const KEEP_AWAKE_TAG = 'cubiq-timer';
-const puzzle = PUZZLES[DEFAULT_PUZZLE_ID];
+// Skipped when the system asks for reduced motion.
+const fadeIn = FadeIn.duration(motion.normal).reduceMotion(ReduceMotion.System);
 
 export function TimerScreen() {
   const theme = useTheme();
+  const { width, height } = useWindowDimensions();
+  const landscape = width > height;
   const settings = useSettingsStore((s) => s.timer);
   const activeSessionId = useDataStore((s) => s.activeSessionId);
   const session = useDbQuery((db) => getSession(db, activeSessionId));
+  const puzzle = PUZZLES[session?.puzzleId ?? DEFAULT_PUZZLE_ID];
   const solves = useDbQuery((db) => listSolves(db, activeSessionId));
   const times = useMemo(() => toFinalTimes(solves), [solves]);
   const setPenalty = useDataStore((s) => s.setPenalty);
@@ -75,7 +82,7 @@ export function TimerScreen() {
       setRecordMessage(message);
       scramble.next();
     },
-    [scramble],
+    [scramble, puzzle.id],
   );
 
   // A record of the running solve, so it can be recovered if the app is closed mid-solve.
@@ -89,7 +96,7 @@ export function TimerScreen() {
         startedAt: Date.now(),
       });
     },
-    [markSolveEnded, markSolveStarted, scramble.scramble],
+    [markSolveEnded, markSolveStarted, scramble.scramble, puzzle.id],
   );
 
   const onManualSave = useCallback(
@@ -105,7 +112,7 @@ export function TimerScreen() {
       });
       scramble.next();
     },
-    [scramble],
+    [scramble, puzzle.id],
   );
 
   const timer = useTimer({ config, onSolve, onRunningChange });
@@ -119,12 +126,14 @@ export function TimerScreen() {
   useFocusEffect(
     useCallback(() => {
       if (settings.keepScreenAwake) activateKeepAwakeAsync(KEEP_AWAKE_TAG).catch(() => {});
+      if (settings.allowLandscape) allowAnyOrientation();
       return () => {
         deactivateKeepAwake(KEEP_AWAKE_TAG).catch(() => {});
+        if (settings.allowLandscape) lockPortrait();
         setFocusMode(false);
         reset();
       };
-    }, [settings.keepScreenAwake, setFocusMode, reset]),
+    }, [settings.keepScreenAwake, settings.allowLandscape, setFocusMode, reset]),
   );
 
   // Penalty controls apply to the solve just timed, while its time is still on screen.
@@ -145,9 +154,21 @@ export function TimerScreen() {
               : 'Hold, then release to start';
 
   return (
-    <Screen scroll={false} contentStyle={styles.content}>
+    <Screen
+      scroll={false}
+      contentStyle={styles.content}
+      backgroundColor={
+        settings.timerBackground === 'black'
+          ? '#000000'
+          : settings.timerBackground === 'surface'
+            ? theme.colors.surface
+            : undefined
+      }
+    >
       {!busy ? (
-        <View style={{ gap: theme.spacing.md }}>
+        // Controls fade back in after a solve; the fade runs on the UI thread, and
+        // nothing animates while the timer is running.
+        <Animated.View entering={fadeIn} style={{ gap: theme.spacing.md }}>
           <View style={styles.headerRow}>
             <View style={styles.headerSpacer} />
             <Chip
@@ -167,7 +188,7 @@ export function TimerScreen() {
             </View>
           </View>
           <ScrambleCard scramble={scramble} onNewScramble={scramble.next} />
-        </View>
+        </Animated.View>
       ) : null}
 
       <View
@@ -183,6 +204,10 @@ export function TimerScreen() {
           decimals={settings.decimals}
           inspectionMs={config.inspectionMs}
           hideWhileRunning={settings.hideTimeWhileRunning}
+          secondsOnlyWhileRunning={settings.secondsOnlyWhileRunning}
+          size={settings.timerSize}
+          timeColor={settings.timerColor}
+          onActivate={timer.activate}
           stoppedPenalty={lastSolve?.penalty}
         />
         {state.status === 'stopped' && recordMessage && lastSolve ? (
@@ -196,7 +221,14 @@ export function TimerScreen() {
       </View>
 
       {!busy ? (
-        <View style={{ gap: theme.spacing.md, minHeight: 96, justifyContent: 'flex-end' }}>
+        <Animated.View
+          entering={fadeIn}
+          style={{
+            gap: theme.spacing.md,
+            minHeight: landscape ? 0 : 96,
+            justifyContent: 'flex-end',
+          }}
+        >
           {lastSolve ? (
             <LastSolveActions
               solve={lastSolve}
@@ -211,18 +243,21 @@ export function TimerScreen() {
               }}
             />
           ) : null}
-          <View style={[styles.statsRow, { gap: theme.spacing.lg }]}>
-            <MiniStat
-              label="Ao5"
-              value={formatStat(currentAverage(times, 'ao5'), settings.decimals)}
-            />
-            <MiniStat
-              label="Ao12"
-              value={formatStat(currentAverage(times, 'ao12'), settings.decimals)}
-            />
-            <MiniStat label="Solves" value={String(solves.length)} />
-          </View>
-        </View>
+          {/* Landscape is short: the time and scramble come first. */}
+          {landscape ? null : (
+            <View style={[styles.statsRow, { gap: theme.spacing.lg }]}>
+              <MiniStat
+                label="Ao5"
+                value={formatStat(currentAverage(times, 'ao5'), settings.decimals)}
+              />
+              <MiniStat
+                label="Ao12"
+                value={formatStat(currentAverage(times, 'ao12'), settings.decimals)}
+              />
+              <MiniStat label="Solves" value={String(solves.length)} />
+            </View>
+          )}
+        </Animated.View>
       ) : null}
 
       <SessionSwitcherSheet visible={sheet === 'sessions'} onClose={() => setSheet(null)} />

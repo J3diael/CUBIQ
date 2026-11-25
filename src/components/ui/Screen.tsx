@@ -17,6 +17,8 @@ export interface ScreenProps {
   /** Safe-area edges to pad. Tab screens skip the bottom edge because the tab bar handles it. */
   edges?: Edge[];
   contentStyle?: ViewStyle;
+  /** Overrides the theme background, e.g. the timer's background setting. */
+  backgroundColor?: string;
 }
 
 export function Screen({
@@ -27,6 +29,7 @@ export function Screen({
   scroll = true,
   edges = ['top'],
   contentStyle,
+  backgroundColor,
 }: ScreenProps) {
   const theme = useTheme();
   const padding = { padding: theme.spacing.md, gap: theme.spacing.lg };
@@ -48,7 +51,10 @@ export function Screen({
   ) : null;
 
   return (
-    <SafeAreaView edges={edges} style={[styles.root, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView
+      edges={edges}
+      style={[styles.root, { backgroundColor: backgroundColor ?? theme.colors.background }]}
+    >
       {scroll ? (
         <ScrollView
           contentContainerStyle={[padding, contentStyle]}

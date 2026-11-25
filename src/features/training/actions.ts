@@ -14,6 +14,7 @@ import {
   type CustomAlgorithmInput,
 } from '@/database/repositories/training-repository';
 import type { Grade } from '@/lib/training/srs';
+import { goalActions } from '@/features/goals/actions';
 import { useDataStore } from '@/store/data-store';
 import { useUiStore } from '@/store/ui-store';
 
@@ -23,7 +24,11 @@ function write<T>(action: (db: AppDatabase) => T): T {
 
 /** Training writes. Each one saves to SQLite and refreshes open screens. */
 export const training = {
-  setStatus: (key: string, status: LearningStatus) => write((db) => setStatus(db, key, status)),
+  setStatus: (key: string, status: LearningStatus) => {
+    write((db) => setStatus(db, key, status));
+    // "Learn all PLL" and similar goals complete when the last case is learned.
+    if (status === 'learned') goalActions.sync();
+  },
   setFavorite: (key: string, value: boolean) => write((db) => setFavorite(db, key, value)),
   setPreferred: (key: string, algorithm: string | null) =>
     write((db) => setPreferredAlgorithm(db, key, algorithm)),

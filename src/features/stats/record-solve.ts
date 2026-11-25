@@ -1,11 +1,13 @@
 import type { PuzzleId } from '@/constants/puzzles';
 import { getDatabase } from '@/database/client';
 import { formatStat, newRecords, RECORD_LABELS, type RecordKind } from '@/lib/stats';
-import { playHaptic } from '@/services/haptics';
+import { feedback } from '@/services/feedback';
 import { useDataStore } from '@/store/data-store';
 import { useSettingsStore } from '@/store/settings-store';
 import { useUiStore } from '@/store/ui-store';
 import type { Solve } from '@/types/models';
+
+import { goalActions } from '@/features/goals/actions';
 
 import { getPersonalRecords } from './queries';
 
@@ -34,8 +36,11 @@ export function saveSolveAndCheckRecords(
     message = `New personal best: ${records
       .map((kind) => `${RECORD_LABELS[kind]} ${formatStat(after[kind], decimals)}`)
       .join(', ')}`;
-    playHaptic('record');
-    if (options.announce !== 'none') useUiStore.getState().showToast({ message });
+    feedback('record');
   }
+  // Goals this solve completed (solve counts, times, streaks) are announced with it.
+  const goalMessage = goalActions.sync('none');
+  message = [message, goalMessage].filter(Boolean).join('. ') || null;
+  if (message && options.announce !== 'none') useUiStore.getState().showToast({ message });
   return { solve, records, message };
 }

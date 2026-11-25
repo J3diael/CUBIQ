@@ -69,6 +69,26 @@ describe('data store', () => {
       expect(data().interruptedSolve).toBeNull();
     });
 
+    it('saves it with a session of the same puzzle if its own session was deleted', () => {
+      const db = getDatabase();
+      const big = data().createSession({ name: 'Big cubes', puzzleId: '444' });
+      data().setActiveSession(big.id);
+      data().markSolveStarted({ ...started, puzzleId: '444' });
+      const threeId = listSessions(db).find((s) => s.puzzleId === '333')!.id;
+      data().setActiveSession(threeId);
+      data().deleteSession(big.id);
+      data().load();
+
+      data().resolveInterruptedSolve('save-dnf');
+      // Not in the active 3x3 session: a new 4x4 session holds it.
+      expect(listSolves(db, threeId)).toHaveLength(0);
+      const four = listSessions(db).find((s) => s.puzzleId === '444')!;
+      expect(four.name).toBe('4x4 Practice');
+      expect(listSolves(db, four.id)).toEqual([
+        expect.objectContaining({ puzzleId: '444', penalty: 'dnf' }),
+      ]);
+    });
+
     it('can discard it instead', () => {
       data().markSolveStarted(started);
       data().load();
@@ -100,11 +120,17 @@ describe('settings store', () => {
   });
 
   it('keeps valid fields and uses defaults for invalid or missing ones', () => {
-    setSetting(getDatabase(), 'timer', { holdMs: 550, decimals: 7, unknown: true });
+    setSetting(getDatabase(), 'timer', {
+      holdMs: 550,
+      decimals: 7,
+      unknown: true,
+      timerSize: 'giant',
+      timerColor: 'green',
+    });
     setSetting(getDatabase(), 'appearance.theme', 'purple');
     useSettingsStore.getState().hydrate();
     const state = useSettingsStore.getState();
-    expect(state.timer).toEqual({ ...DEFAULT_TIMER_SETTINGS, holdMs: 550 });
+    expect(state.timer).toEqual({ ...DEFAULT_TIMER_SETTINGS, holdMs: 550, timerColor: 'green' });
     expect(state.themePreference).toBe('dark');
   });
 });

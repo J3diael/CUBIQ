@@ -5,7 +5,7 @@ import { Text } from '@/components/ui';
 import { inspectionPhase, type Penalty, type TimerState } from '@/lib/timer';
 import { formatSolveTime } from '@/lib/time/format-result';
 import { formatDuration } from '@/lib/time/format';
-import type { DisplayDecimals } from '@/store/settings-store';
+import type { DisplayDecimals, TimerColor, TimerSize } from '@/store/settings-store';
 import type { ColorToken } from '@/theme';
 
 import { now } from '../use-timer';
@@ -15,6 +15,13 @@ interface TimerDisplayProps {
   decimals: DisplayDecimals;
   inspectionMs: number;
   hideWhileRunning: boolean;
+  /** Whole seconds only while running, for less distraction. */
+  secondsOnlyWhileRunning?: boolean;
+  size?: TimerSize;
+  /** Colour of the time when idle, running or stopped. Ready and holding keep theirs. */
+  timeColor?: TimerColor;
+  /** Double tap with a screen reader: start or stop (see useTimer's `activate`). */
+  onActivate?: () => void;
   /** Penalty of the recorded solve, which the user may have changed after stopping. */
   stoppedPenalty?: Penalty;
 }
@@ -28,14 +35,19 @@ export function TimerDisplay({
   decimals,
   inspectionMs,
   hideWhileRunning,
+  secondsOnlyWhileRunning = false,
+  size = 'medium',
+  timeColor = 'default',
   stoppedPenalty,
+  onActivate,
 }: TimerDisplayProps) {
   const clock = useFrameClock(
     state.status === 'running' || state.status === 'inspecting' || hasInspection(state),
   );
 
   let text: string;
-  let color: ColorToken = 'textPrimary';
+  const baseColor = BASE_COLORS[timeColor];
+  let color: ColorToken = baseColor;
   let label: string;
 
   switch (state.status) {
@@ -51,7 +63,7 @@ export function TimerDisplay({
           ? 'timerHolding'
           : state.status === 'ready'
             ? 'timerReady'
-            : 'textPrimary';
+            : baseColor;
       if (state.inspectionStart !== null) {
         const phase = inspectionPhase(clock - state.inspectionStart, inspectionMs);
         text =
@@ -71,7 +83,9 @@ export function TimerDisplay({
     case 'running':
       text = hideWhileRunning
         ? 'Solving'
-        : formatDuration(Math.max(0, clock - state.start), decimals);
+        : secondsOnlyWhileRunning
+          ? String(Math.floor(Math.max(0, clock - state.start) / 1000))
+          : formatDuration(Math.max(0, clock - state.start), decimals);
       label = 'Timer running';
       break;
     case 'stopped':
@@ -83,19 +97,48 @@ export function TimerDisplay({
   }
 
   return (
-    <View style={styles.container} accessible accessibilityRole="timer" accessibilityLabel={label}>
+    <View
+      style={styles.container}
+      accessible
+      accessibilityRole="timer"
+      accessibilityLabel={label}
+      accessibilityActions={
+        onActivate ? [{ name: 'activate', label: activateLabel(state) }] : undefined
+      }
+      onAccessibilityAction={(e) => {
+        if (e.nativeEvent.actionName === 'activate') onActivate?.();
+      }}
+    >
       <Text
         variant="timer"
         color={color}
         align="center"
         numberOfLines={1}
         adjustsFontSizeToFit
-        style={state.status === 'running' && hideWhileRunning ? styles.solving : undefined}
+        style={
+          state.status === 'running' && hideWhileRunning
+            ? styles.solving
+            : { fontSize: SIZES[size], lineHeight: Math.round(SIZES[size] * 1.17) }
+        }
       >
         {text}
       </Text>
     </View>
   );
+}
+
+const SIZES: Record<TimerSize, number> = { small: 56, medium: 72, large: 88, huge: 108 };
+const BASE_COLORS: Record<TimerColor, ColorToken> = {
+  default: 'textPrimary',
+  accent: 'accent',
+  green: 'success',
+  amber: 'warning',
+};
+
+function activateLabel(state: TimerState): string {
+  if (state.status === 'running') return 'Stop the timer';
+  if (state.status === 'inspecting') return 'Start the solve';
+  return 'Start the timer';
 }
 
 function hasInspection(state: TimerState): boolean {

@@ -14,6 +14,7 @@ import {
   StatTile,
   Text,
 } from '@/components/ui';
+import { puzzleShortName } from '@/constants/puzzles';
 import { getSession, listSessions } from '@/database/repositories/sessions-repository';
 import { listSolves } from '@/database/repositories/solves-repository';
 import { SolveRow } from '@/features/solves/components/SolveRow';
@@ -25,6 +26,8 @@ import { useTheme } from '@/theme';
 
 import { SessionFormSheet } from './components/SessionFormSheet';
 import { METHOD_LABELS, PURPOSE_LABELS } from './labels';
+
+const PAGE = 100;
 
 export function SessionDetailScreen() {
   const theme = useTheme();
@@ -38,6 +41,8 @@ export function SessionDetailScreen() {
   const renameSession = useDataStore((s) => s.renameSession);
   const deleteSession = useDataStore((s) => s.deleteSession);
   const [sheet, setSheet] = useState<'rename' | 'delete' | null>(null);
+  // Long sessions render in pages, so opening one with thousands of solves stays fast.
+  const [shown, setShown] = useState(PAGE);
 
   if (!session) {
     return (
@@ -69,7 +74,9 @@ export function SessionDetailScreen() {
       <View style={{ gap: theme.spacing.xxs }}>
         <Text variant="title">{session.name}</Text>
         <Text variant="caption" color="textSecondary">
-          {[isActive ? 'Active session' : null, tags || null].filter(Boolean).join(' · ') || '3x3'}
+          {[puzzleShortName(session.puzzleId), isActive ? 'Active session' : null, tags || null]
+            .filter(Boolean)
+            .join(' · ')}
         </Text>
       </View>
 
@@ -140,19 +147,30 @@ export function SessionDetailScreen() {
             />
           ) : (
             // Newest first; numbering keeps the order solves were done in.
-            [...solves].reverse().map((solve, i) => (
-              <View key={solve.id}>
-                {i > 0 ? <Divider /> : null}
-                <SolveRow
-                  solve={solve}
-                  decimals={decimals}
-                  index={solves.length - i}
-                  onPress={() => openSolve(solve.id)}
-                />
-              </View>
-            ))
+            solves
+              .slice(-shown)
+              .reverse()
+              .map((solve, i) => (
+                <View key={solve.id}>
+                  {i > 0 ? <Divider /> : null}
+                  <SolveRow
+                    solve={solve}
+                    decimals={decimals}
+                    index={solves.length - i}
+                    onPress={() => openSolve(solve.id)}
+                  />
+                </View>
+              ))
           )}
         </Card>
+        {solves.length > shown ? (
+          <Button
+            label={`Show ${Math.min(PAGE, solves.length - shown)} more`}
+            variant="ghost"
+            fullWidth
+            onPress={() => setShown(shown + PAGE)}
+          />
+        ) : null}
       </View>
 
       <SessionFormSheet
