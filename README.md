@@ -4,7 +4,7 @@ An offline-first speedcubing timer and training companion for Android (iOS secon
 
 CUBIQ combines a competition-grade timer, random-state scrambles, solve and session management, WCA-style statistics, a CFOP algorithm trainer and a beginner course. Everything works without an account or an internet connection.
 
-> Status: **Phase 2 (timer engine)**. A working 3x3 timer with random-state scrambles, hold-to-start, inspection and haptics. Solves are kept in memory until storage arrives in Phase 3. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the full checklist.
+> Status: **Phase 3 (database and sessions)**. A working 3x3 timer with random-state scrambles, inspection and haptics. Solves, sessions and settings are saved on the device with SQLite, with manual time entry, solve notes and crash recovery. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the full checklist.
 
 ## Tech stack
 
@@ -27,13 +27,15 @@ npm start          # starts the dev server and shows a QR code
 
 ## Scripts
 
-| Command             | What it does                   |
-| ------------------- | ------------------------------ |
-| `npm start`         | Start the Expo dev server      |
-| `npm test`          | Run the Jest test suite        |
-| `npm run typecheck` | Type-check with TypeScript     |
-| `npm run lint`      | Lint with ESLint (Expo config) |
-| `npm run format`    | Format with Prettier           |
+| Command                         | What it does                                                  |
+| ------------------------------- | ------------------------------------------------------------- |
+| `npm start`                     | Start the Expo dev server                                     |
+| `npm test`                      | Run the Jest test suite                                       |
+| `npm run typecheck`             | Type-check with TypeScript                                    |
+| `npm run lint`                  | Lint with ESLint (Expo config)                                |
+| `npm run format`                | Format with Prettier                                          |
+| `npm run db:generate`           | Generate a SQL migration after changing `src/database/schema` |
+| `npm run build:scramble-engine` | Rebuild the offline scramble engine page                      |
 
 Install new native-compatible packages with `npx expo install <package>` so versions match the SDK.
 
@@ -48,7 +50,7 @@ src/
   store/        Zustand stores
   lib/          pure TypeScript logic (time formatting now; statistics and timer later)
   hooks/        shared hooks
-  database/     SQLite + Drizzle (Phase 3)
+  database/     SQLite + Drizzle: schema, migrations, repositories
   content/      built-in algorithms and lessons (Phase 5–6)
   services/     external integrations behind interfaces
 ```
@@ -58,6 +60,10 @@ Layers only call downward: routes → features → stores / repositories / servi
 ## Scramble engine
 
 cubing.js generates scrambles in a module Web Worker and uses WebAssembly for some puzzles. React Native's JavaScript engine (Hermes) supports neither, so CUBIQ bundles cubing.js's worker into a single HTML page (`scripts/build-scramble-engine.mjs` → `src/services/scramble-engine/engine-html.generated.ts`) and runs it in a hidden WebView mounted at the app root. The app talks to it through a small message protocol (`engine-client.ts`) and keeps a queue of ready scrambles (`features/scrambles/scramble-queue.ts`) so the timer never waits. Everything is inlined, so it works offline. cubing.js is a dev dependency because only the generated file ships.
+
+## Data
+
+Everything is stored on the device in SQLite (`cubiq.db`) through Drizzle ORM. Tables are defined in `src/database/schema`; after changing them, run `npm run db:generate` and commit the new migration. Migrations run automatically at startup. Screens read through repository functions with `useDbQuery`, which re-runs the query after every write. Rows use UUID ids and soft deletes so cloud sync can be added later without reshaping the data.
 
 ## Design
 

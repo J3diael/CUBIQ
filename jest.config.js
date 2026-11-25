@@ -2,6 +2,7 @@
 module.exports = {
   preset: 'jest-expo',
   setupFiles: ['<rootDir>/jest.setup.ts'],
+  setupFilesAfterEnv: ['<rootDir>/jest.setup-after-env.ts'],
   moduleNameMapper: {
     // lucide ships its ESM build as .mjs, which Jest does not transform; use the CommonJS build.
     '^lucide-react-native$':

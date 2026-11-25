@@ -1,18 +1,24 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
+import { Keyboard } from 'lucide-react-native';
 
-import { Chip, Screen, Text } from '@/components/ui';
+import { Chip, IconButton, Screen, Text } from '@/components/ui';
 import { DEFAULT_PUZZLE_ID, PUZZLES } from '@/constants/puzzles';
+import { getSession } from '@/database/repositories/sessions-repository';
+import { listSolves } from '@/database/repositories/solves-repository';
 import { useScramble } from '@/features/scrambles/use-scramble';
+import { SessionSwitcherSheet } from '@/features/sessions/components/SessionSwitcherSheet';
+import { deleteSolveWithUndo } from '@/features/solves/actions';
 import type { SolveResult, TimerConfig } from '@/lib/timer';
+import { useDataStore, useDbQuery } from '@/store/data-store';
 import { useSettingsStore } from '@/store/settings-store';
-import { useSolvesStore } from '@/store/solves-store';
 import { useUiStore } from '@/store/ui-store';
 import { useTheme } from '@/theme';
 
 import { LastSolveActions } from './components/LastSolveActions';
+import { ManualEntrySheet } from './components/ManualEntrySheet';
 import { ScrambleCard } from './components/ScrambleCard';
 import { TimerDisplay } from './components/TimerDisplay';
 import { useTimer } from './use-timer';
@@ -23,12 +29,17 @@ const puzzle = PUZZLES[DEFAULT_PUZZLE_ID];
 export function TimerScreen() {
   const theme = useTheme();
   const settings = useSettingsStore((s) => s.timer);
-  const solves = useSolvesStore((s) => s.solves);
-  const addSolve = useSolvesStore((s) => s.addSolve);
-  const setPenalty = useSolvesStore((s) => s.setPenalty);
-  const deleteSolve = useSolvesStore((s) => s.deleteSolve);
+  const activeSessionId = useDataStore((s) => s.activeSessionId);
+  const session = useDbQuery((db) => getSession(db, activeSessionId));
+  const solves = useDbQuery((db) => listSolves(db, activeSessionId));
+  const addSolve = useDataStore((s) => s.addSolve);
+  const setPenalty = useDataStore((s) => s.setPenalty);
+  const markSolveStarted = useDataStore((s) => s.markSolveStarted);
+  const markSolveEnded = useDataStore((s) => s.markSolveEnded);
   const setFocusMode = useUiStore((s) => s.setTimerFocusMode);
   const scramble = useScramble(puzzle.id);
+  const [sheet, setSheet] = useState<'sessions' | 'manual' | null>(null);
+  const [lastSolveId, setLastSolveId] = useState<string | null>(null);
 
   const config: TimerConfig = useMemo(
     () => ({
@@ -42,14 +53,46 @@ export function TimerScreen() {
   const onSolve = useCallback(
     (result: SolveResult, wasInterrupted: boolean) => {
       // The scramble on screen during the solve is the one stored with it; then it is replaced.
+      const solve = addSolve({
+        puzzleId: puzzle.id,
+        scramble: scramble.scramble?.notation ?? '',
+        scrambleGeneratedAt: scramble.scramble?.generatedAt ?? null,
+        rawTimeMs: result.rawMs,
+        penalty: result.penalty,
+        inspectionMs: result.inspectionMs,
+        source: 'timer',
+        wasInterrupted,
+        solvedAt: Date.now(),
+      });
+      setLastSolveId(solve.id);
+      scramble.next();
+    },
+    [addSolve, scramble],
+  );
+
+  // A record of the running solve, so it can be recovered if the app is closed mid-solve.
+  const onRunningChange = useCallback(
+    (running: boolean) => {
+      if (!running) return markSolveEnded();
+      markSolveStarted({
+        puzzleId: puzzle.id,
+        scramble: scramble.scramble?.notation ?? '',
+        scrambleGeneratedAt: scramble.scramble?.generatedAt ?? null,
+        startedAt: Date.now(),
+      });
+    },
+    [markSolveEnded, markSolveStarted, scramble.scramble],
+  );
+
+  const onManualSave = useCallback(
+    (entry: { rawTimeMs: number; penalty: SolveResult['penalty'] }) => {
       addSolve({
         puzzleId: puzzle.id,
         scramble: scramble.scramble?.notation ?? '',
         scrambleGeneratedAt: scramble.scramble?.generatedAt ?? null,
-        rawMs: result.rawMs,
-        penalty: result.penalty,
-        inspectionMs: result.inspectionMs,
-        wasInterrupted,
+        rawTimeMs: entry.rawTimeMs,
+        penalty: entry.penalty,
+        source: 'manual',
         solvedAt: Date.now(),
       });
       scramble.next();
@@ -57,7 +100,7 @@ export function TimerScreen() {
     [addSolve, scramble],
   );
 
-  const timer = useTimer({ config, onSolve });
+  const timer = useTimer({ config, onSolve, onRunningChange });
   const { state, busy, reset } = timer;
 
   useEffect(() => {
@@ -76,7 +119,9 @@ export function TimerScreen() {
     }, [settings.keepScreenAwake, setFocusMode, reset]),
   );
 
-  const lastSolve = state.status === 'stopped' ? solves.at(-1) : undefined;
+  // Penalty controls apply to the solve just timed, while its time is still on screen.
+  const lastSolve =
+    state.status === 'stopped' ? solves.find((s) => s.id === lastSolveId) : undefined;
 
   const hint =
     state.status === 'inspecting'
@@ -96,7 +141,22 @@ export function TimerScreen() {
       {!busy ? (
         <View style={{ gap: theme.spacing.md }}>
           <View style={styles.headerRow}>
-            <Chip label={`${puzzle.shortName} · Current session`} selected />
+            <View style={styles.headerSpacer} />
+            <Chip
+              label={`${puzzle.shortName} · ${session?.name ?? 'Session'}`}
+              selected
+              accessibilityLabel={`Session: ${session?.name ?? ''}. Change session`}
+              onPress={() => setSheet('sessions')}
+            />
+            <View style={[styles.headerSpacer, { alignItems: 'flex-end' }]}>
+              <IconButton
+                icon={Keyboard}
+                accessibilityLabel="Add a time manually"
+                color="textSecondary"
+                size={20}
+                onPress={() => setSheet('manual')}
+              />
+            </View>
           </View>
           <ScrambleCard scramble={scramble} onNewScramble={scramble.next} />
         </View>
@@ -129,7 +189,7 @@ export function TimerScreen() {
               solve={lastSolve}
               onPenalty={(penalty) => setPenalty(lastSolve.id, penalty)}
               onDelete={() => {
-                deleteSolve(lastSolve.id);
+                deleteSolveWithUndo(lastSolve.id);
                 reset();
               }}
             />
@@ -141,6 +201,14 @@ export function TimerScreen() {
           </View>
         </View>
       ) : null}
+
+      <SessionSwitcherSheet visible={sheet === 'sessions'} onClose={() => setSheet(null)} />
+      <ManualEntrySheet
+        visible={sheet === 'manual'}
+        scramble={scramble.scramble?.notation ?? null}
+        onClose={() => setSheet(null)}
+        onSave={onManualSave}
+      />
     </Screen>
   );
 }
@@ -158,7 +226,8 @@ function MiniStat({ label, value = '—' }: { label: string; value?: string }) {
 
 const styles = StyleSheet.create({
   content: { gap: 16 },
-  headerRow: { flexDirection: 'row', justifyContent: 'center' },
+  headerRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
+  headerSpacer: { flex: 1 },
   touchArea: { flex: 1, justifyContent: 'center', gap: 8 },
   statsRow: { flexDirection: 'row', justifyContent: 'center' },
   miniStat: { alignItems: 'center', gap: 2, minWidth: 72 },

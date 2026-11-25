@@ -1,17 +1,66 @@
-import { Layers } from 'lucide-react-native';
+import { useState } from 'react';
+import { View } from 'react-native';
+import { router } from 'expo-router';
+import { Plus } from 'lucide-react-native';
 
-import { Card, EmptyState, Screen } from '@/components/ui';
+import { Card, Chip, Divider, IconButton, ListRow, Screen, Text } from '@/components/ui';
+import { DEFAULT_PUZZLE_ID } from '@/constants/puzzles';
+import { listSessions } from '@/database/repositories/sessions-repository';
+import { useDataStore, useDbQuery } from '@/store/data-store';
+
+import { SessionFormSheet } from './components/SessionFormSheet';
+import { sessionSubtitle } from './format';
 
 export function SessionsScreen() {
+  const sessions = useDbQuery(listSessions);
+  const activeId = useDataStore((s) => s.activeSessionId);
+  const createSession = useDataStore((s) => s.createSession);
+  const setActive = useDataStore((s) => s.setActiveSession);
+  const [creating, setCreating] = useState(false);
+
   return (
-    <Screen title="Sessions" subtitle="Organise solves by puzzle, goal or competition">
-      <Card>
-        <EmptyState
-          icon={Layers}
-          title="No sessions yet"
-          message="Sessions group your solves so you can compare practice days, goals and puzzles. Creating sessions arrives in Phase 3."
+    <Screen
+      title="Sessions"
+      subtitle="Group solves by goal, method or competition"
+      headerAction={
+        <IconButton
+          icon={Plus}
+          accessibilityLabel="New session"
+          onPress={() => setCreating(true)}
         />
+      }
+    >
+      <Card flush>
+        {sessions.map((session, index) => (
+          <View key={session.id}>
+            {index > 0 ? <Divider /> : null}
+            <ListRow
+              title={session.name}
+              subtitle={sessionSubtitle(session)}
+              trailing={session.id === activeId ? <Chip label="Active" selected /> : null}
+              onPress={() =>
+                router.push({
+                  pathname: '/sessions/[sessionId]',
+                  params: { sessionId: session.id },
+                })
+              }
+            />
+          </View>
+        ))}
       </Card>
+      <Text variant="caption" color="textSecondary" align="center">
+        New solves go into the active session. Change it here or from the timer.
+      </Text>
+
+      <SessionFormSheet
+        visible={creating}
+        mode="create"
+        onClose={() => setCreating(false)}
+        onSubmit={(values) => {
+          const session = createSession({ ...values, puzzleId: DEFAULT_PUZZLE_ID });
+          setActive(session.id);
+        }}
+      />
     </Screen>
   );
 }

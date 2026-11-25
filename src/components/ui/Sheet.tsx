@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X } from 'lucide-react-native';
 
@@ -22,7 +22,8 @@ export function Sheet({ visible, onClose, title, children }: SheetProps) {
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.container}>
+      {/* Lifts the sheet above the keyboard when it holds a text field. */}
+      <KeyboardAvoidingView behavior="padding" style={styles.container}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Close"
@@ -50,7 +51,7 @@ export function Sheet({ visible, onClose, title, children }: SheetProps) {
           </View>
           {children}
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

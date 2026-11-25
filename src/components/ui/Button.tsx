@@ -6,7 +6,7 @@ import { touchTarget, useTheme } from '@/theme';
 
 import { Text } from './Text';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost';
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
 export interface ButtonProps extends Omit<PressableProps, 'children' | 'style'> {
   label: string;
@@ -29,11 +29,17 @@ export function Button({
   const background =
     variant === 'primary'
       ? colors.accent
-      : variant === 'secondary'
-        ? colors.surfaceRaised
-        : 'transparent';
+      : variant === 'danger'
+        ? colors.danger
+        : variant === 'secondary'
+          ? colors.surfaceRaised
+          : 'transparent';
   const foreground =
-    variant === 'primary' ? 'textOnAccent' : variant === 'ghost' ? 'accent' : 'textPrimary';
+    variant === 'primary' || variant === 'danger'
+      ? 'textOnAccent'
+      : variant === 'ghost'
+        ? 'accent'
+        : 'textPrimary';
 
   return (
     <Pressable

@@ -7,6 +7,10 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
 
+import { ToastHost } from '@/components/ui';
+import { StartupErrorScreen } from '@/features/bootstrap/StartupErrorScreen';
+import { useAppBootstrap } from '@/features/bootstrap/use-app-bootstrap';
+import { InterruptedSolveSheet } from '@/features/timer/components/InterruptedSolveSheet';
 import { useAppFonts } from '@/hooks/use-app-fonts';
 import { ScrambleEngineHost } from '@/services/scramble-engine/ScrambleEngineHost';
 import { ThemeProvider, useTheme } from '@/theme';
@@ -16,18 +20,29 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const fontsReady = useAppFonts();
+  const { state: data, retry } = useAppBootstrap();
+  const ready = fontsReady && data.status !== 'loading';
 
+  // The splash screen stays up until fonts and saved data are loaded.
   useEffect(() => {
-    if (fontsReady) SplashScreen.hideAsync();
-  }, [fontsReady]);
+    if (ready) SplashScreen.hideAsync();
+  }, [ready]);
 
-  if (!fontsReady) return null;
+  if (!ready) return null;
 
   return (
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
         <ThemeProvider>
-          <ThemedNavigation />
+          {data.status === 'error' ? (
+            <StartupErrorScreen message={data.message} onRetry={retry} />
+          ) : (
+            <>
+              <ThemedNavigation />
+              <InterruptedSolveSheet />
+              <ToastHost />
+            </>
+          )}
         </ThemeProvider>
         <ScrambleEngineHost />
       </SafeAreaProvider>
@@ -48,6 +63,10 @@ function ThemedNavigation() {
       <StatusBar style={theme.scheme === 'dark' ? 'light' : 'dark'} />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen
+          name="solve/[solveId]"
+          options={{ presentation: 'modal', headerShown: true, title: 'Solve' }}
+        />
         <Stack.Screen
           name="dev/gallery"
           options={{ headerShown: true, title: 'Component gallery' }}
