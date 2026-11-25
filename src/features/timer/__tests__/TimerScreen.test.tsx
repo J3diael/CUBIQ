@@ -172,6 +172,24 @@ describe('TimerScreen', () => {
     expect(savedSolves()).toHaveLength(0);
   });
 
+  it('announces a new personal best under the time', async () => {
+    const { addSolve } = useDataStore.getState();
+    addSolve({ puzzleId: '333', scramble: 'R', rawTimeMs: 20_000, solvedAt: 1 });
+    await renderThemed(<TimerScreen />);
+    await screen.findByLabelText(/^Scramble:/);
+    await fireEvent(touchArea(), 'touchStart');
+    await advance(301);
+    await fireEvent(touchArea(), 'touchEnd');
+    await advance(5000);
+    await fireEvent(touchArea(), 'touchStart');
+    expect(screen.getByText('New personal best: single 5.000')).toBeOnTheScreen();
+    expect(useUiStore.getState().toast).toBeNull();
+
+    // Marking it DNF takes the message away.
+    await fireEvent.press(screen.getByRole('button', { name: 'DNF' }));
+    expect(screen.queryByText(/New personal best/)).toBeNull();
+  });
+
   it('switches the session new solves go into', async () => {
     const second = useDataStore.getState().createSession({ name: 'OH', puzzleId: '333' });
     await renderThemed(<TimerScreen />);

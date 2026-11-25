@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { Timer } from 'lucide-react-native';
+import { ChartLine, Timer } from 'lucide-react-native';
 
 import {
   Button,
@@ -18,8 +18,7 @@ import { getSession, listSessions } from '@/database/repositories/sessions-repos
 import { listSolves } from '@/database/repositories/solves-repository';
 import { SolveRow } from '@/features/solves/components/SolveRow';
 import { openSolve } from '@/features/solves/navigation';
-import { bestSingleMs, dnfCount, meanExcludingDnfMs } from '@/lib/stats/simple';
-import { formatDuration } from '@/lib/time/format';
+import { computeSessionStats, formatStat } from '@/lib/stats';
 import { useDataStore, useDbQuery } from '@/store/data-store';
 import { useSettingsStore } from '@/store/settings-store';
 import { useTheme } from '@/theme';
@@ -55,9 +54,8 @@ export function SessionDetailScreen() {
   }
 
   const isActive = session.id === activeId;
-  const best = bestSingleMs(solves);
-  const mean = meanExcludingDnfMs(solves);
-  const dnfs = dnfCount(solves);
+  const stats = computeSessionStats(solves);
+  const dnfs = stats.dnfCount;
   const tags = [
     session.method && METHOD_LABELS[session.method],
     session.purpose && PURPOSE_LABELS[session.purpose],
@@ -81,15 +79,23 @@ export function SessionDetailScreen() {
           value={String(solves.length)}
           hint={dnfs ? `${dnfs} DNF` : undefined}
         />
-        <StatTile label="Best" value={best === null ? '—' : formatDuration(best, decimals)} />
-        <StatTile
-          label="Mean"
-          value={mean === null ? '—' : formatDuration(mean, decimals)}
-          hint={dnfs ? 'DNFs left out' : undefined}
-        />
+        <StatTile label="Best" value={formatStat(stats.bestSingle, decimals)} />
+        <StatTile label="Ao5" value={formatStat(stats.averages.ao5.current, decimals)} />
       </View>
 
       <View style={{ gap: theme.spacing.sm }}>
+        <Button
+          label="Statistics and charts"
+          icon={ChartLine}
+          variant="secondary"
+          fullWidth
+          onPress={() =>
+            router.push({
+              pathname: '/sessions/[sessionId]/stats',
+              params: { sessionId: session.id },
+            })
+          }
+        />
         {!isActive ? (
           <Button label="Use this session" fullWidth onPress={() => setActive(session.id)} />
         ) : null}

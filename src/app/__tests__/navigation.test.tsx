@@ -11,7 +11,8 @@ import SessionsScreen from '../(tabs)/sessions/index';
 import TimerScreen from '../(tabs)/timer';
 import TrainLayout from '../(tabs)/train/_layout';
 import TrainScreen from '../(tabs)/train/index';
-import SessionDetailScreen from '../(tabs)/sessions/[sessionId]';
+import SessionDetailScreen from '../(tabs)/sessions/[sessionId]/index';
+import SessionStatsScreen from '../(tabs)/sessions/[sessionId]/stats';
 import SolveDetailScreen from '../solve/[solveId]';
 import { ToastHost } from '@/components/ui';
 import { getDatabase } from '@/database/client';
@@ -38,7 +39,8 @@ function renderApp(initialUrl = '/') {
       '(tabs)/timer': TimerScreen,
       '(tabs)/sessions/_layout': SessionsLayout,
       '(tabs)/sessions/index': SessionsScreen,
-      '(tabs)/sessions/[sessionId]': SessionDetailScreen,
+      '(tabs)/sessions/[sessionId]/index': SessionDetailScreen,
+      '(tabs)/sessions/[sessionId]/stats': SessionStatsScreen,
       'solve/[solveId]': SolveDetailScreen,
       '(tabs)/train/_layout': TrainLayout,
       '(tabs)/train/index': TrainScreen,
@@ -140,7 +142,7 @@ describe('sessions', () => {
 
     expect(screen.getByLabelText('Solves: 3')).toBeOnTheScreen();
     expect(screen.getByLabelText('Best: 10.000')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Mean: 11.000')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Ao5: no data yet')).toBeOnTheScreen();
     expect(screen.getByText('#3 · DNF(8.000)')).toBeOnTheScreen();
     // Deleting the only session isn't allowed.
     expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled();
@@ -164,6 +166,45 @@ describe('sessions', () => {
     expect(listSessions(getDatabase()).map((s) => s.id)).toEqual([second.id]);
     expect(listSolves(getDatabase(), first)).toHaveLength(0);
     expect(useDataStore.getState().activeSessionId).toBe(second.id);
+  });
+});
+
+describe('statistics', () => {
+  it('shows averages, consistency and charts for a session', async () => {
+    const now = Date.now();
+    [12, 10, 14, 9, 11, 20, 8].forEach((sec, i) =>
+      addSolve(sec * 1000, { solvedAt: now - 10_000 + i * 1000 }),
+    );
+    addSolve(7_000, { penalty: 'dnf', solvedAt: now });
+    const id = useDataStore.getState().activeSessionId;
+    await renderApp(`/sessions/${id}`);
+    await fireEvent.press(screen.getByRole('button', { name: 'Statistics and charts' }));
+    expect(screen).toHavePathname(`/sessions/${id}/stats`);
+
+    expect(screen.getByLabelText('Solves: 8')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Best: 8.000')).toBeOnTheScreen();
+    // Last five: 9, 11, 20, 8, DNF → drop 8 and DNF → mean(9, 11, 20) = 13.333
+    expect(screen.getByLabelText('Ao5: current 13.333, best 11.000')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Ao12: current —, best —')).toBeOnTheScreen();
+    expect(screen.getByLabelText('DNF rate: 13%')).toBeOnTheScreen();
+    expect(screen.getByTestId('trend-chart')).toHaveAccessibleName(
+      'Trend of 8 solves. Current Ao5 13.333, current Ao12 —.',
+    );
+    expect(screen.getByTestId('distribution-chart')).toBeOnTheScreen();
+  });
+
+  it('asks for more solves before drawing charts', async () => {
+    addSolve(10_000);
+    await renderApp(`/sessions/${useDataStore.getState().activeSessionId}/stats`);
+    expect(screen.getByText('Charts need a few solves')).toBeOnTheScreen();
+    expect(screen.queryByTestId('trend-chart')).toBeNull();
+  });
+
+  it('shows personal-best averages on Home', async () => {
+    [10, 11, 12, 13, 14].forEach((sec, i) => addSolve(sec * 1000, { solvedAt: Date.now() + i }));
+    await renderApp('/');
+    expect(screen.getByLabelText('Ao5: 12.000')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Ao12: no data yet')).toBeOnTheScreen();
   });
 });
 

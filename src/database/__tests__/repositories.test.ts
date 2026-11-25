@@ -27,6 +27,7 @@ import {
   deleteSolve,
   getSolve,
   listSolves,
+  listSolvesBySession,
   recentSolves,
   restoreSolve,
   setNotes,
@@ -174,6 +175,23 @@ describe('solves', () => {
     expect(countSolves(db, { since: 200 })).toBe(2);
     expect(bestSingle(db, '333')).toBe(11_000);
     expect(bestSingle(db, '222')).toBeNull();
+  });
+
+  it("groups a puzzle's solves by live session, oldest first", () => {
+    const a = createSession(db, { name: 'A', puzzleId: '333' });
+    const b = createSession(db, { name: 'B', puzzleId: '333' });
+    const gone = createSession(db, { name: 'Gone', puzzleId: '333' });
+    addSolve(db, solveInput(a.id, 12_000));
+    addSolve(db, solveInput(b.id, 9_000));
+    addSolve(db, solveInput(a.id, 10_000));
+    addSolve(db, solveInput(gone.id, 5_000));
+    addSolve(db, solveInput(a.id, 8_000, { puzzleId: '222' }));
+    deleteSession(db, gone.id);
+
+    const groups = listSolvesBySession(db, '333')
+      .map((g) => g.map((s) => s.rawTimeMs))
+      .sort((x, y) => y.length - x.length);
+    expect(groups).toEqual([[10_000, 12_000], [9_000]]);
   });
 
   it('returns recent solves across sessions with the session name', () => {

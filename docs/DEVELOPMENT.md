@@ -8,9 +8,9 @@ The living checklist for CUBIQ: what is done, what is next, known issues, decisi
 | ------------------------ | -------------------------------------------------------- | -------------- |
 | 1. Foundation            | Working app shell: navigation, themes, design system     | Done           |
 | 2. Timer engine          | Functional 3x3 timer with scrambles, inspection, haptics | Done           |
-| 3. Database and sessions | Persistent solves, sessions, penalties, manual entry     | Done (this PR) |
-| 4. Statistics            | Ao3/Ao5/Ao12, PBs, charts, session analytics             | Next           |
-| 5. Training center       | CFOP algorithm database, flashcards, mastery             | Pending        |
+| 3. Database and sessions | Persistent solves, sessions, penalties, manual entry     | Done           |
+| 4. Statistics            | Ao3/Ao5/Ao12, PBs, charts, session analytics             | Done (this PR) |
+| 5. Training center       | CFOP algorithm database, flashcards, mastery             | Next           |
 | 6. Beginner learning     | Lessons, notation guide, progress                        | Pending        |
 | 7. Polish and expansion  | Customisation, more puzzles, accessibility, performance  | Pending        |
 
@@ -69,18 +69,29 @@ The living checklist for CUBIQ: what is done, what is next, known issues, decisi
 - [x] Android bundle builds; web build checked in Chromium: solves, a typed time and settings survive a reload
 - [ ] Check on a physical Android phone in Expo Go (needs you): solves survive closing the app; force-close during a solve shows the recovery sheet
 
-## Next up: Phase 4
+## Phase 4 checklist
 
-1. Statistics engine in `src/lib/stats`: Ao3/Ao5/Ao12/Ao50/Ao100 with WCA trimming and DNF rules, mean of 3, best averages.
-2. Personal bests and PB detection after each solve.
-3. Victory Native + Skia charts: time trend and distribution.
-4. Session analytics screen and the Ao5/Ao12 values on Timer and Home.
+- [x] Statistics engine in `src/lib/stats` (pure TypeScript, unit tested): Mo3, Ao5, Ao12, Ao50, Ao100 with WCA trimming (5% each side, rounded up), DNF rules, current and best averages, mean, standard deviation, worst single, DNF count
+- [x] Personal bests per puzzle: best single, Ao5, Ao12 and Ao100. Averages never span two sessions
+- [x] New-PB detection by comparing records before and after each save (nothing about records is stored). On the timer the message shows under the time; for typed times it's a toast. Success haptic
+- [x] Timer shows the session's current Ao5 and Ao12; Home shows PB single, Ao5 and Ao12
+- [x] Session statistics screen (Session → Statistics and charts): averages table, consistency, trend chart (each solve with Ao5 and Ao12), time-spread histogram
+- [x] Charts with Victory Native + Skia; in the browser preview Skia loads its bundled WebAssembly first
+- [x] 169 tests; Android bundle builds; charts and stats checked in Chromium with 14 solves
+- [ ] Check on a physical Android phone in Expo Go (needs you): charts draw, PB message appears
+
+## Next up: Phase 5
+
+1. CFOP algorithm content (OLL, PLL, F2L) as typed files with cube diagrams.
+2. Algorithm browser with search and filters.
+3. Flashcards and mastery tracking (stored in SQLite).
 
 ## Known bugs and limitations
 
 - The scramble engine adds about 1.2 MB to the JavaScript bundle (cubing.js plus its WebAssembly solver for non-3x3 puzzles).
 - If the app is killed during a solve, the time itself can't be recovered. The scramble is kept and the solve can be saved as a DNF.
-- Ao5 and Ao12 show "—" until the statistics engine lands in Phase 4.
+- Personal bests are recomputed from all solves after each save. That is instant for thousands of solves; very large histories may need caching later (Phase 7).
+- Victory Native is held at 42.x: version 43 needs a newer Skia than Expo SDK 58 (and Expo Go) ships.
 - Only 3x3 sessions for now; other puzzles are enabled in Phase 7.
 - The web preview stores data in the browser (OPFS) and needs the COOP/COEP headers the dev server sends; Android is the real target.
 - App icon and splash image are still the Expo template images; a CUBIQ icon is needed before release.

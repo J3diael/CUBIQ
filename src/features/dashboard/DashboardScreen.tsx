@@ -14,11 +14,12 @@ import {
 } from '@/components/ui';
 import { DEFAULT_PUZZLE_ID } from '@/constants/puzzles';
 import { getSession } from '@/database/repositories/sessions-repository';
-import { bestSingle, countSolves, recentSolves } from '@/database/repositories/solves-repository';
+import { countSolves, recentSolves } from '@/database/repositories/solves-repository';
 import { SolveRow } from '@/features/solves/components/SolveRow';
 import { openSolve } from '@/features/solves/navigation';
 import { startOfLocalDay } from '@/lib/time/date';
-import { formatDuration } from '@/lib/time/format';
+import { getPersonalRecords } from '@/features/stats/queries';
+import { formatStat } from '@/lib/stats';
 import { useDataStore, useDbQuery } from '@/store/data-store';
 import { useSettingsStore } from '@/store/settings-store';
 import { useTheme } from '@/theme';
@@ -28,7 +29,7 @@ export function DashboardScreen() {
   const decimals = useSettingsStore((s) => s.timer.decimals);
   const activeSessionId = useDataStore((s) => s.activeSessionId);
   const session = useDbQuery((db) => getSession(db, activeSessionId));
-  const best = useDbQuery((db) => bestSingle(db, DEFAULT_PUZZLE_ID));
+  const records = useDbQuery((db) => getPersonalRecords(db, DEFAULT_PUZZLE_ID));
   const total = useDbQuery((db) => countSolves(db));
   const today = useDbQuery((db) => countSolves(db, { since: startOfLocalDay() }));
   const recent = useDbQuery((db) => recentSolves(db, 5));
@@ -45,10 +46,9 @@ export function DashboardScreen() {
       <View style={{ gap: theme.spacing.sm }}>
         <SectionHeader title="Personal bests · 3x3" />
         <View style={{ flexDirection: 'row', gap: theme.spacing.sm }}>
-          <StatTile label="Single" value={best === null ? '—' : formatDuration(best, decimals)} />
-          {/* Averages need the statistics engine, which arrives in Phase 4. */}
-          <StatTile label="Ao5" value="—" hint="Phase 4" />
-          <StatTile label="Ao12" value="—" hint="Phase 4" />
+          <StatTile label="Single" value={formatStat(records.single, decimals)} />
+          <StatTile label="Ao5" value={formatStat(records.ao5, decimals)} />
+          <StatTile label="Ao12" value={formatStat(records.ao12, decimals)} />
         </View>
       </View>
 
