@@ -51,6 +51,9 @@ interface DataState {
   /** Loads the active session (creating the first one if needed) and any interrupted solve. */
   load: () => void;
 
+  /** Runs any repository write, then refreshes screens. Used by feature actions (training). */
+  write: <T>(action: (db: AppDatabase) => T) => T;
+
   addSolve: (input: Omit<NewSolveInput, 'sessionId'> & { sessionId?: string }) => Solve;
   setPenalty: (id: string, penalty: Penalty) => void;
   setNotes: (id: string, notes: string) => void;
@@ -103,6 +106,8 @@ export const useDataStore = create<DataState>()((set, get) => {
         version: state.version + 1,
       }));
     },
+
+    write: (action) => write(action),
 
     addSolve: (input) =>
       write((db) =>

@@ -9,9 +9,9 @@ The living checklist for CUBIQ: what is done, what is next, known issues, decisi
 | 1. Foundation            | Working app shell: navigation, themes, design system     | Done           |
 | 2. Timer engine          | Functional 3x3 timer with scrambles, inspection, haptics | Done           |
 | 3. Database and sessions | Persistent solves, sessions, penalties, manual entry     | Done           |
-| 4. Statistics            | Ao3/Ao5/Ao12, PBs, charts, session analytics             | Done (this PR) |
-| 5. Training center       | CFOP algorithm database, flashcards, mastery             | Next           |
-| 6. Beginner learning     | Lessons, notation guide, progress                        | Pending        |
+| 4. Statistics            | Ao3/Ao5/Ao12, PBs, charts, session analytics             | Done           |
+| 5. Training center       | CFOP algorithm database, flashcards, mastery             | Done (this PR) |
+| 6. Beginner learning     | Lessons, notation guide, progress                        | Next           |
 | 7. Polish and expansion  | Customisation, more puzzles, accessibility, performance  | Pending        |
 
 ## Phase 1 checklist
@@ -80,11 +80,28 @@ The living checklist for CUBIQ: what is done, what is next, known issues, decisi
 - [x] 169 tests; Android bundle builds; charts and stats checked in Chromium with 14 solves
 - [ ] Check on a physical Android phone in Expo Go (needs you): charts draw, PB message appears
 
-## Next up: Phase 5
+## Phase 5 checklist
 
-1. CFOP algorithm content (OLL, PLL, F2L) as typed files with cube diagrams.
-2. Algorithm browser with search and filters.
-3. Flashcards and mastery tracking (stored in SQLite).
+- [x] Cube model in `src/lib/cube` (pure TypeScript, unit tested): notation parser (face turns, wide moves as `r` or `Rw`, slices M E S, rotations x y z), a sticker-based 3x3 that applies any algorithm, and case detection
+- [x] Built-in content in `src/content/algorithms`: 41 F2L cases (front-right slot), 57 OLL, 21 PLL, grouped, with alternatives for some cases and recognition tips where they are reliable
+- [x] Every built-in algorithm is checked by the cube model in tests: valid notation, the right part of the cube changes (F2L only moves the front-right pair and the top, OLL and PLL keep the first two layers), each set has the right number of distinct cases, and alternatives solve the same case
+- [x] Cube diagrams drawn from the algorithm itself (top view with side strips for OLL/PLL, 3D view for F2L), so a diagram can never disagree with its algorithm
+- [x] Train tab: flashcard summary, CFOP sets with learned, learning and due counts; "Later" and "Phase 6" labels for what isn't built yet
+- [x] Algorithm list per set: search by name, group or moves; filters for not started, learning, learned, favourites
+- [x] Algorithm detail: diagram, group and recognition, status (not started, learning, learned), favourite, choose which algorithm to learn, your own alternatives, notes, mastery
+- [x] Execution timer on each algorithm: best and last time, number of runs
+- [x] Flashcards: pick a deck (F2L, OLL, PLL or your own) and which cards (due and new, learning, favourites, all); see the case, recall, reveal, rate Again/Hard/Good/Easy. Spaced repetition decides when each card comes back; a missed card returns at the end of the round
+- [x] Mastery per algorithm, computed from review history (how long you can go between reviews and how often you remember)
+- [x] My algorithms: create, edit and delete (with undo) your own algorithms with name, notation check, type, collection and notes; practise them as flashcards; alternatives for built-in cases appear on that case
+- [x] SQLite tables `algorithm_progress` (keyed by case id) and `custom_algorithms` (soft delete)
+- [x] 354 tests; Android bundle builds; every Train screen checked in Chromium
+- [ ] Check on a physical Android phone in Expo Go (needs you): diagrams look right, flashcards flow
+
+## Next up: Phase 6
+
+1. Beginner method course as typed lesson content.
+2. Notation guide using the cube model and diagrams from Phase 5.
+3. Lesson progress saved in SQLite.
 
 ## Known bugs and limitations
 
@@ -93,6 +110,10 @@ The living checklist for CUBIQ: what is done, what is next, known issues, decisi
 - Personal bests are recomputed from all solves after each save. That is instant for thousands of solves; very large histories may need caching later (Phase 7).
 - Victory Native is held at 42.x: version 43 needs a newer Skia than Expo SDK 58 (and Expo Go) ships.
 - Only 3x3 sessions for now; other puzzles are enabled in Phase 7.
+- Cross training isn't built yet (labelled "Later"). Roux and ZZ have no built-in sets; their algorithms can be added under My algorithms.
+- The cube model proves that each algorithm is valid and that the cases in a set are all different. It can't prove that a case's name or number (for example "OLL 27" or "Ga") matches the community convention; those were assigned by hand and should be spot-checked.
+- F2L cases are numbered by CUBIQ's own grouping, not the speedsolving.com order. Their algorithms were found by a computer search for the shortest R, U, F solution, so they are short but not always the most finger-friendly.
+- Diagrams only cover the front-right F2L slot.
 - The web preview stores data in the browser (OPFS) and needs the COOP/COEP headers the dev server sends; Android is the real target.
 - App icon and splash image are still the Expo template images; a CUBIQ icon is needed before release.
 - On web, the Hermes-specific timing caveats don't apply; the timer must be verified on a real Android device.
@@ -115,6 +136,10 @@ The living checklist for CUBIQ: what is done, what is next, known issues, decisi
 | 2026-11-25 | Repository tests use better-sqlite3 with the same migrations                     | Real SQL (constraints, joins, transactions) runs in Jest without a device                       |
 | 2026-11-25 | The last session can't be deleted                                                | The timer always has somewhere to save a solve                                                  |
 | 2026-11-25 | A solve lost to a crash is offered back as a DNF with no time                    | The time is unknowable; inventing one would be fake data                                        |
+| 2026-11-25 | Our own small cube model instead of a library for diagrams and checks            | No new dependency; works in Jest; lets tests verify every built-in algorithm                    |
+| 2026-11-25 | Case diagrams are computed from the algorithm, not drawn by hand                 | A diagram can never disagree with its algorithm                                                 |
+| 2026-11-25 | F2L algorithms found by computer search (`scripts/generate-f2l.mjs`)             | Guaranteed correct and complete (all 41 cases); readable source of truth                        |
+| 2026-11-25 | Flashcards use a simplified SM-2 (Anki-style) schedule; mastery is computed      | Proven method; review history is stored, mastery never goes stale                               |
 
 The full architecture plan, schema and design system live in the CUBIQ architecture doc shared in the project.
 
@@ -141,3 +166,6 @@ The full architecture plan, schema and design system live in the CUBIQ architect
 | drizzle-kit (dev)                                                                 | Generates SQL migrations from the schema                      |
 | babel-plugin-inline-import (dev)                                                  | Bundles the `.sql` migration files into the app               |
 | better-sqlite3, @types/better-sqlite3 (dev)                                       | Real SQLite for Jest tests                                    |
+| victory-native, @shopify/react-native-skia                                        | Charts (Phase 4)                                              |
+
+Phase 5 added no dependencies: the cube model, diagrams (react-native-svg) and spaced repetition are our own code.
