@@ -4,13 +4,13 @@ An offline-first speedcubing timer and training companion for Android (iOS secon
 
 CUBIQ combines a competition-grade timer, random-state scrambles, solve and session management, WCA-style statistics, a CFOP algorithm trainer and a beginner course. Everything works without an account or an internet connection.
 
-> Status: **Phase 1 (foundation)**. Navigation, themes and the design system are in place. The timer engine arrives in Phase 2. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the full checklist.
+> Status: **Phase 2 (timer engine)**. A working 3x3 timer with random-state scrambles, hold-to-start, inspection and haptics. Solves are kept in memory until storage arrives in Phase 3. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the full checklist.
 
 ## Tech stack
 
 Expo SDK 58 · React Native 0.88 · TypeScript (strict) · Expo Router · Reanimated · Gesture Handler · React Native SVG · Lucide icons · Zustand · Zod · Jest with React Native Testing Library.
 
-Planned for later phases: Expo SQLite with Drizzle ORM, cubing.js (scrambles run in an offline WebView), Victory Native charts.
+Scrambles come from [cubing.js](https://js.cubing.net/cubing/), running in a hidden offline WebView (see below). Planned: Expo SQLite with Drizzle ORM, Victory Native charts.
 
 ## Getting started
 
@@ -54,6 +54,10 @@ src/
 ```
 
 Layers only call downward: routes → features → stores / repositories / services → lib. Screens never contain SQL, statistics or timer logic.
+
+## Scramble engine
+
+cubing.js generates scrambles in a module Web Worker and uses WebAssembly for some puzzles. React Native's JavaScript engine (Hermes) supports neither, so CUBIQ bundles cubing.js's worker into a single HTML page (`scripts/build-scramble-engine.mjs` → `src/services/scramble-engine/engine-html.generated.ts`) and runs it in a hidden WebView mounted at the app root. The app talks to it through a small message protocol (`engine-client.ts`) and keeps a queue of ready scrambles (`features/scrambles/scramble-queue.ts`) so the timer never waits. Everything is inlined, so it works offline. cubing.js is a dev dependency because only the generated file ships.
 
 ## Design
 
