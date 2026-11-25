@@ -4,3 +4,4 @@ dist
 assets
 src/database/migrations
 package-lock.json
+src/**/*.generated.ts

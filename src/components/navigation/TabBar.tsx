@@ -12,6 +12,7 @@ import {
 } from 'lucide-react-native';
 
 import { Text } from '@/components/ui';
+import { useUiStore } from '@/store/ui-store';
 import { touchTarget, useTheme } from '@/theme';
 
 interface TabConfig {
@@ -31,6 +32,9 @@ export const TAB_CONFIG: Record<string, TabConfig> = {
 export function TabBar({ state, emitter, navigateToTab }: BottomTabBarProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  // During inspection or a solve the timer takes the whole screen.
+  const hidden = useUiStore((s) => s.timerFocusMode);
+  if (hidden) return null;
 
   return (
     <View

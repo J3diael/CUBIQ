@@ -26,23 +26,45 @@ The living checklist for CUBIQ: what is done, what is next, known issues, decisi
 - [x] Five-tab navigation (Home, Sessions, Timer, Train, Profile) with a custom themed tab bar, Timer in the centre
 - [x] Each tab's main screen laid out with honest empty states and "Phase N" labels instead of fake data
 - [x] Theme switch in Profile → Settings (in memory; persisted in Phase 3)
-- [x] Jest with `jest-expo` and React Native Testing Library: 30 tests (formatting, themes, components, navigation)
+- [x] Jest with `jest-expo` and React Native Testing Library: 30 tests at the time (formatting, themes, components, navigation)
 - [x] Checked at 360 dp width in both themes (web preview) and Android bundle builds
 - [ ] Check on a physical Android phone in Expo Go (needs you)
 
-## Next up: Phase 2
+## Phase 2 checklist
 
-1. Spike: run cubing.js `randomScrambleForEvent('333')` inside a hidden, offline `react-native-webview`. Measure cold-start time. Fallback: pure TypeScript 3x3 random-state solver behind the same interface.
-2. Confirm cubing.js `alg` and `kpuzzle` import and run in Hermes.
-3. Timer state machine in `src/lib/timer` (idle → holding → ready → running → stopped, plus inspection), fully unit tested.
-4. Hold-to-start with Gesture Handler, monotonic timing with `performance.now()`, wall-clock backup for backgrounding.
-5. Haptics, keep-awake, timer settings (inspection, hold duration).
+- [x] Spike: cubing.js `randomScrambleForEvent` runs offline inside a hidden WebView. Verified in Chromium for 333, 222, 444, 555, 666, 777, Pyraminx, Skewb, Square-1, Megaminx and Clock (3x3: 15 to 150 ms; first 4x4: about 2.4 s)
+- [x] Build script that inlines cubing.js's search worker into one HTML page (`npm run build:scramble-engine`)
+- [x] Engine client (request/response over the WebView bridge, timeouts, restart after the WebView is killed)
+- [x] Scramble queue: 3 ready per puzzle, one generation at a time, each scramble used once
+- [x] Timer state machine in `src/lib/timer` (idle, inspecting, holding, ready, running, stopped), fully unit tested
+- [x] Monotonic timing with `performance.now()`; display refresh never affects the measured time
+- [x] Hold-to-start with configurable hold (instant, 0.3 s, 0.55 s, 1 s), stop on touch down
+- [x] WCA inspection (8/15/30 s), +2 up to 2 s over, DNF after; haptic warnings at 8 s and 12 s
+- [x] Haptics on ready, stop and inspection warnings (can be turned off)
+- [x] Keep screen awake while the Timer tab is open (setting)
+- [x] Background handling: an unfinished hold is cancelled; a running solve keeps going and is corrected with the wall clock if the monotonic clock paused; the solve is flagged as interrupted
+- [x] Android back button is ignored during a solve and cancels inspection
+- [x] Tab bar and scramble hide during inspection and solves
+- [x] Last solve: OK / +2 / DNF / delete
+- [x] Timer settings screen: inspection, duration, hold time, haptics, hide time while solving, keep awake, precision
+- [x] Scramble also works in the browser preview (hidden iframe)
+- [ ] Check on a physical Android phone in Expo Go (needs you): scrambles appear, hold/start/stop feel responsive, haptics fire
+
+## Next up: Phase 3
+
+1. Expo SQLite + Drizzle: schema, generated migrations, `PRAGMA foreign_keys`, WAL.
+2. Solve and session repositories; replace the in-memory solves store and settings store.
+3. Persist the scramble queue and the interrupted-solve record.
+4. Session management screens and manual time entry.
 
 ## Known bugs and limitations
 
-- Theme preference resets on app restart until SQLite settings land in Phase 3.
+- Settings and solves reset on app restart until SQLite storage lands in Phase 3.
+- The scramble engine adds about 1.2 MB to the JavaScript bundle (cubing.js plus its WebAssembly solver for non-3x3 puzzles).
+- If the app is killed during a solve, that solve is lost. Recovery comes with SQLite in Phase 3.
 - App icon and splash image are still the Expo template images; a CUBIQ icon is needed before release.
 - On web, the Hermes-specific timing caveats don't apply; the timer must be verified on a real Android device.
+- The WebView engine is verified in desktop Chromium. Android System WebView is Chromium-based, but it still needs a device check.
 
 ## Architectural decisions
 

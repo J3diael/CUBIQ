@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
 
 import { useAppFonts } from '@/hooks/use-app-fonts';
+import { ScrambleEngineHost } from '@/services/scramble-engine/ScrambleEngineHost';
 import { ThemeProvider, useTheme } from '@/theme';
 import { toNavigationTheme } from '@/theme/navigation-theme';
 
@@ -28,6 +29,7 @@ export default function RootLayout() {
         <ThemeProvider>
           <ThemedNavigation />
         </ThemeProvider>
+        <ScrambleEngineHost />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
