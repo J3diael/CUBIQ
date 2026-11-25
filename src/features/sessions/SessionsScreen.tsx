@@ -4,7 +4,6 @@ import { router } from 'expo-router';
 import { Plus } from 'lucide-react-native';
 
 import { Card, Chip, Divider, IconButton, ListRow, Screen, Text } from '@/components/ui';
-import { DEFAULT_PUZZLE_ID } from '@/constants/puzzles';
 import { listSessions } from '@/database/repositories/sessions-repository';
 import { useDataStore, useDbQuery } from '@/store/data-store';
 
@@ -57,7 +56,7 @@ export function SessionsScreen() {
         mode="create"
         onClose={() => setCreating(false)}
         onSubmit={(values) => {
-          const session = createSession({ ...values, puzzleId: DEFAULT_PUZZLE_ID });
+          const session = createSession(values);
           setActive(session.id);
         }}
       />

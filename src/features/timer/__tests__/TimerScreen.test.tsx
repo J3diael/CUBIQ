@@ -10,6 +10,9 @@ import { useUiStore } from '@/store/ui-store';
 import { z } from 'zod';
 import { ThemeProvider } from '@/theme';
 
+import { createAudioPlayer } from 'expo-audio';
+import * as ScreenOrientation from 'expo-screen-orientation';
+
 import { TimerScreen } from '../TimerScreen';
 
 jest.mock('expo-router', () => ({
@@ -217,5 +220,93 @@ describe('TimerScreen', () => {
     await fireEvent(touchArea(), 'touchStart');
 
     expect(savedSolves()[0]).toMatchObject({ penalty: 'plus2', rawTimeMs: 10_000 });
+  });
+
+  describe('customisation', () => {
+    it('uses the chosen size, colour and background', async () => {
+      useSettingsStore.setState({
+        timer: { ...DEFAULT_TIMER_SETTINGS, timerSize: 'huge', timerColor: 'accent' },
+      });
+      await renderThemed(<TimerScreen />);
+      expect(screen.getByText('0.000')).toHaveStyle({ fontSize: 108, color: '#7C8CFF' });
+    });
+
+    it('shows whole seconds while solving, then the full time', async () => {
+      useSettingsStore.setState({
+        timer: { ...DEFAULT_TIMER_SETTINGS, holdMs: 0, secondsOnlyWhileRunning: true },
+      });
+      await renderThemed(<TimerScreen />);
+      await fireEvent(touchArea(), 'touchStart');
+      await fireEvent(touchArea(), 'touchEnd');
+      await advance(2500);
+      expect(screen.getByText('2')).toBeOnTheScreen();
+      await fireEvent(touchArea(), 'touchStart');
+      expect(timerText()).toHaveAccessibleName(/^Solve time 2\.5/);
+    });
+
+    it('plays sounds only when sound is on', async () => {
+      const player = createAudioPlayer as jest.Mock;
+      player.mockClear();
+      useSettingsStore.setState({ timer: { ...DEFAULT_TIMER_SETTINGS, holdMs: 0 } });
+      await renderThemed(<TimerScreen />);
+      await fireEvent(touchArea(), 'touchStart');
+      await fireEvent(touchArea(), 'touchEnd');
+      await fireEvent(touchArea(), 'touchStart');
+      expect(player).not.toHaveBeenCalled();
+
+      await act(async () => {
+        useSettingsStore.setState({
+          timer: { ...DEFAULT_TIMER_SETTINGS, holdMs: 0, soundEnabled: true },
+        });
+      });
+      await fireEvent(touchArea(), 'touchEnd');
+      await fireEvent(touchArea(), 'touchStart');
+      await fireEvent(touchArea(), 'touchEnd');
+      await fireEvent(touchArea(), 'touchStart');
+      // Ready, then stop.
+      const played = player.mock.results.map((r) => r.value.play as jest.Mock);
+      expect(played.reduce((n, play) => n + play.mock.calls.length, 0)).toBeGreaterThanOrEqual(2);
+    });
+
+    it('lets the timer rotate only when landscape is allowed', async () => {
+      (ScreenOrientation.unlockAsync as jest.Mock).mockClear();
+      (ScreenOrientation.lockAsync as jest.Mock).mockClear();
+      useSettingsStore.setState({ timer: { ...DEFAULT_TIMER_SETTINGS, allowLandscape: true } });
+      const { unmount } = await renderThemed(<TimerScreen />);
+      expect(ScreenOrientation.unlockAsync).toHaveBeenCalled();
+      await unmount();
+      expect(ScreenOrientation.lockAsync).toHaveBeenCalledWith('PORTRAIT_UP');
+    });
+  });
+
+  it('starts and stops with a screen reader double tap, with or without inspection', async () => {
+    useSettingsStore.setState({ timer: { ...DEFAULT_TIMER_SETTINGS, holdMs: 550 } });
+    await renderThemed(<TimerScreen />);
+    const activate = () =>
+      fireEvent(timerText(), 'accessibilityAction', { nativeEvent: { actionName: 'activate' } });
+    await activate();
+    expect(screen.getByText('Tap anywhere to stop')).toBeOnTheScreen();
+    await advance(4321);
+    await activate();
+    expect(timerText()).toHaveAccessibleName('Solve time 4.321');
+    expect(savedSolves()).toHaveLength(1);
+
+    await act(async () => {
+      useSettingsStore.setState({
+        timer: { ...DEFAULT_TIMER_SETTINGS, holdMs: 550, inspectionEnabled: true },
+      });
+    });
+    await activate();
+    expect(timerText()).toHaveAccessibleName('Inspection, 15');
+    await advance(3000);
+    await activate();
+    expect(screen.getByText('Tap anywhere to stop')).toBeOnTheScreen();
+    await advance(1000);
+    await activate();
+    expect(savedSolves()[1]).toMatchObject({
+      rawTimeMs: 1000,
+      penalty: 'none',
+      inspectionMs: 3000,
+    });
   });
 });

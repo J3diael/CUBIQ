@@ -27,3 +27,11 @@ export function formatDuration(ms: number, decimals: 2 | 3 = 3): string {
 function pad2(value: number): string {
   return String(value).padStart(2, '0');
 }
+
+/** Time spent, roughly: "45s", "12m", "3h 05m". */
+export function formatTotalTime(ms: number): string {
+  const minutes = Math.floor(ms / 60_000);
+  if (minutes < 1) return `${Math.floor(ms / 1000)}s`;
+  if (minutes < 60) return `${minutes}m`;
+  return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, '0')}m`;
+}

@@ -1,3 +1,4 @@
+export * from './goals';
 export * from './learning';
 export * from './scramble-queue';
 export * from './sessions';

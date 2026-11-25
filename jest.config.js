@@ -2,6 +2,8 @@
 module.exports = {
   preset: 'jest-expo',
   setupFiles: ['<rootDir>/jest.setup.ts'],
+  // Reanimated and Worklets load their web (non-native) builds in Jest.
+  resolver: 'react-native-reanimated/jest/resolver',
   setupFilesAfterEnv: ['<rootDir>/jest.setup-after-env.ts'],
   moduleNameMapper: {
     // lucide ships its ESM build as .mjs, which Jest does not transform; use the CommonJS build.

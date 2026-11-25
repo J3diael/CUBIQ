@@ -30,11 +30,15 @@ export function ScrambleCard({ scramble, onNewScramble }: ScrambleCardProps) {
       <View style={styles.body}>
         {scramble.status === 'ready' ? (
           <Text
-            variant="heading"
+            // Big-cube and Megaminx scrambles are long: smaller type keeps them on screen.
+            variant={scramble.scramble.notation.length > 70 ? 'caption' : 'heading'}
             align="center"
             selectable
             accessibilityLabel={`Scramble: ${scramble.scramble.notation}`}
-            style={[styles.notation, { fontFamily: theme.typography.stat.fontFamily }]}
+            style={[
+              scramble.scramble.notation.length > 70 ? styles.compact : styles.notation,
+              { fontFamily: theme.typography.stat.fontFamily },
+            ]}
           >
             {scramble.scramble.notation}
           </Text>
@@ -71,4 +75,5 @@ const styles = StyleSheet.create({
   body: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   notation: { letterSpacing: 0.5, lineHeight: 28 },
+  compact: { lineHeight: 19 },
 });

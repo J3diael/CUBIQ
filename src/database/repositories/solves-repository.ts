@@ -105,8 +105,11 @@ export function restoreSolve(db: AppDatabase, id: string, now = Date.now()): voi
   db.update(solves).set({ deletedAt: null, updatedAt: now }).where(eq(solves.id, id)).run();
 }
 
-/** Number of solves across live sessions, optionally only since a time. */
-export function countSolves(db: AppDatabase, options: { since?: number } = {}): number {
+/** Number of solves across live sessions, optionally since a time or for one puzzle. */
+export function countSolves(
+  db: AppDatabase,
+  options: { since?: number; puzzleId?: string | null } = {},
+): number {
   const row = db
     .select({ n: sql<number>`count(*)` })
     .from(solves)
@@ -115,10 +118,34 @@ export function countSolves(db: AppDatabase, options: { since?: number } = {}): 
       and(
         notDeleted,
         options.since !== undefined ? gte(solves.solvedAt, options.since) : undefined,
+        options.puzzleId ? eq(solves.puzzleId, options.puzzleId) : undefined,
       ),
     )
     .get();
   return Number(row?.n ?? 0);
+}
+
+/** When each live solve since a time was done, newest first (for practice streaks). */
+export function solveTimesSince(db: AppDatabase, since: number): number[] {
+  return db
+    .select({ at: solves.solvedAt })
+    .from(solves)
+    .innerJoin(sessions, and(eq(sessions.id, solves.sessionId), isNull(sessions.deletedAt)))
+    .where(and(notDeleted, gte(solves.solvedAt, since)))
+    .orderBy(desc(solves.solvedAt))
+    .all()
+    .map((r) => r.at);
+}
+
+/** All-time totals: solve count and time spent solving (raw times, DNFs included). */
+export function practiceTotals(db: AppDatabase): { count: number; totalMs: number } {
+  const row = db
+    .select({ n: sql<number>`count(*)`, total: sql<number>`coalesce(sum(${solves.rawTimeMs}), 0)` })
+    .from(solves)
+    .innerJoin(sessions, and(eq(sessions.id, solves.sessionId), isNull(sessions.deletedAt)))
+    .where(notDeleted)
+    .get();
+  return { count: Number(row?.n ?? 0), totalMs: Number(row?.total ?? 0) };
 }
 
 export interface RecentSolve extends Solve {

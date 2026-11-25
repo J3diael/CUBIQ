@@ -100,11 +100,17 @@ describe('settings store', () => {
   });
 
   it('keeps valid fields and uses defaults for invalid or missing ones', () => {
-    setSetting(getDatabase(), 'timer', { holdMs: 550, decimals: 7, unknown: true });
+    setSetting(getDatabase(), 'timer', {
+      holdMs: 550,
+      decimals: 7,
+      unknown: true,
+      timerSize: 'giant',
+      timerColor: 'green',
+    });
     setSetting(getDatabase(), 'appearance.theme', 'purple');
     useSettingsStore.getState().hydrate();
     const state = useSettingsStore.getState();
-    expect(state.timer).toEqual({ ...DEFAULT_TIMER_SETTINGS, holdMs: 550 });
+    expect(state.timer).toEqual({ ...DEFAULT_TIMER_SETTINGS, holdMs: 550, timerColor: 'green' });
     expect(state.themePreference).toBe('dark');
   });
 });

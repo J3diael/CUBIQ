@@ -10,20 +10,22 @@ export type ScrambleState =
   | { status: 'ready'; scramble: Scramble }
   | { status: 'error'; scramble: null; message: string };
 
+type Loaded = ScrambleState & { puzzleId: PuzzleId | null };
+
 /**
  * The scramble currently shown for a puzzle. `next()` replaces it with a fresh one
  * (after a solve, or when the user asks for a new scramble). A scramble is never
  * reused once replaced.
  */
 export function useScramble(puzzleId: PuzzleId) {
-  const [state, setState] = useState<ScrambleState>({ status: 'loading', scramble: null });
+  const [state, setState] = useState<Loaded>({ status: 'loading', scramble: null, puzzleId: null });
   const requestId = useRef(0);
 
   const load = useCallback(() => {
     const id = ++requestId.current;
     scrambleQueue.take(puzzleId).then(
       (scramble) => {
-        if (id === requestId.current) setState({ status: 'ready', scramble });
+        if (id === requestId.current) setState({ status: 'ready', scramble, puzzleId });
       },
       (error: unknown) => {
         if (id === requestId.current) {
@@ -31,6 +33,7 @@ export function useScramble(puzzleId: PuzzleId) {
             status: 'error',
             scramble: null,
             message: error instanceof Error ? error.message : String(error),
+            puzzleId,
           });
         }
       },
@@ -38,13 +41,20 @@ export function useScramble(puzzleId: PuzzleId) {
   }, [puzzleId]);
 
   const next = useCallback(() => {
-    setState({ status: 'loading', scramble: null });
+    setState({ status: 'loading', scramble: null, puzzleId });
     load();
-  }, [load]);
+  }, [load, puzzleId]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  return { ...state, next };
+  // After switching puzzle, the old puzzle's scramble must never be shown or saved.
+  const current: ScrambleState =
+    state.puzzleId === puzzleId ? stripPuzzle(state) : { status: 'loading', scramble: null };
+  return { ...current, next };
+}
+
+function stripPuzzle({ puzzleId: _puzzleId, ...rest }: Loaded): ScrambleState {
+  return rest as ScrambleState;
 }
