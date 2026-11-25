@@ -124,6 +124,7 @@ The living checklist for CUBIQ: what is done, what is next, known issues, decisi
 - [x] Accessibility: the timer can be started and stopped with a screen reader's activate action; animations honour the system "reduce motion" setting
 - [x] Performance: session detail pages long lists 100 solves at a time
 - [x] 410+ tests; Android and web bundles build; new screens checked in Chromium
+- [x] Full repo review: the offline engine scrambles all 10 puzzles in Chromium; a crashed solve whose session was deleted is saved with a session of the same puzzle; folder READMEs brought up to date
 - [ ] Check on a physical Android phone in Expo Go (needs you): sounds, haptics, landscape
 
 ## Next up

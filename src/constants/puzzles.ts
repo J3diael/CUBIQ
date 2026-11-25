@@ -95,3 +95,7 @@ export const PUZZLE_ORDER: readonly PuzzleId[] = [
 export function puzzleShortName(id: string): string {
   return PUZZLES[id as PuzzleId]?.shortName ?? id;
 }
+
+export function isPuzzleId(id: string): id is PuzzleId {
+  return Object.hasOwn(PUZZLES, id);
+}

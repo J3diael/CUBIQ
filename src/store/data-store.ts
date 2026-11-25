@@ -20,7 +20,7 @@ import {
   setPenalty as setPenaltyRow,
   type NewSolveInput,
 } from '@/database/repositories/solves-repository';
-import { DEFAULT_PUZZLE_ID } from '@/constants/puzzles';
+import { DEFAULT_PUZZLE_ID, PUZZLES, isPuzzleId, type PuzzleId } from '@/constants/puzzles';
 import type { Penalty } from '@/lib/timer/types';
 import type { Session, Solve } from '@/types/models';
 
@@ -157,9 +157,7 @@ export const useDataStore = create<DataState>()((set, get) => {
       const db = getDatabase();
       if (action === 'save-dnf') {
         // The time itself was lost with the app, so it is stored as a DNF with no time.
-        const sessionId = getSession(db, pending.sessionId)
-          ? pending.sessionId
-          : get().activeSessionId;
+        const sessionId = interruptedSolveSessionId(db, pending, get().activeSessionId);
         write(() =>
           addSolveRow(db, {
             sessionId,
@@ -179,6 +177,25 @@ export const useDataStore = create<DataState>()((set, get) => {
     },
   };
 });
+
+/**
+ * Where an interrupted solve is saved: its own session if it still exists, otherwise a
+ * session for the same puzzle, so a 4x4 DNF never lands in a 3x3 session's averages.
+ */
+function interruptedSolveSessionId(
+  db: AppDatabase,
+  pending: InProgressSolve,
+  activeSessionId: string,
+): string {
+  if (getSession(db, pending.sessionId)) return pending.sessionId;
+  const sessions = listSessions(db);
+  const active = sessions.find((s) => s.id === activeSessionId);
+  if (active?.puzzleId === pending.puzzleId) return active.id;
+  const samePuzzle = sessions.find((s) => s.puzzleId === pending.puzzleId);
+  if (samePuzzle) return samePuzzle.id;
+  const puzzleId: PuzzleId = isPuzzleId(pending.puzzleId) ? pending.puzzleId : DEFAULT_PUZZLE_ID;
+  return createSessionRow(db, { name: `${PUZZLES[puzzleId].shortName} Practice`, puzzleId }).id;
+}
 
 /**
  * Runs a read query against the database and re-runs it after every write.
