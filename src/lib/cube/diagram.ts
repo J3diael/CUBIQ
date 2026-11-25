@@ -1,6 +1,6 @@
 import { isF2LSolved } from './analysis';
 import { caseFromAlgorithm, faceStickers, type CubeState } from './cube';
-import type { Face } from './notation';
+import type { Face, MoveFamily } from './notation';
 
 /** A sticker's colour in a diagram: a face colour, or `null` for "doesn't matter" (grey). */
 export type DiagramColor = Face | null;
@@ -69,4 +69,76 @@ export function caseDiagram(algorithm: string, set: 'f2l' | 'oll' | 'pll' | 'oth
       : ({ kind: 'f2l', ...fullColorDiagram(state) } as const);
   }
   return { kind: 'last-layer', ...lastLayerDiagram(state, set) } as const;
+}
+
+/** Which pieces a lesson diagram colours; the rest are grey. */
+export type PieceMask =
+  'all' | 'centers' | 'edges' | 'corners' | 'cross' | 'first-layer' | 'f2l' | 'none';
+
+const nonZero = (home: readonly number[]) => home.filter((c) => c !== 0).length;
+
+/** True when the piece whose home is `home` belongs to the mask. */
+export function inMask(mask: PieceMask, home: readonly number[]): boolean {
+  const kind = nonZero(home); // 1 centre, 2 edge, 3 corner
+  switch (mask) {
+    case 'all':
+      return true;
+    case 'none':
+      return false;
+    case 'centers':
+      return kind === 1;
+    case 'edges':
+      return kind === 2;
+    case 'corners':
+      return kind === 3;
+    case 'cross':
+      return kind === 1 || (kind === 2 && home[1] === -1);
+    case 'first-layer':
+      return kind === 1 || home[1] === -1;
+    case 'f2l':
+      return home[1] !== 1;
+  }
+}
+
+export interface IsoDiagram {
+  U: DiagramColor[];
+  F: DiagramColor[];
+  R: DiagramColor[];
+  /** Stickers drawn faded, e.g. layers a move doesn't turn. Same order as the faces. */
+  faded?: { U: boolean[]; F: boolean[]; R: boolean[] };
+}
+
+/**
+ * Three-face view for lessons. `mask` picks which pieces keep their colour (by piece,
+ * wherever it is now); `layer` fades every sticker outside one layer, to show which
+ * part of the cube a move turns.
+ */
+export function isoDiagram(
+  state: CubeState,
+  mask: PieceMask = 'all',
+  layer?: { axis: 0 | 1 | 2; values: number[] },
+): IsoDiagram {
+  const faces = ['U', 'F', 'R'] as const;
+  const [U, F, R] = faces.map((face) =>
+    faceStickers(state, face).map((s) => (inMask(mask, s.home) ? s.color : null)),
+  ) as [DiagramColor[], DiagramColor[], DiagramColor[]];
+  if (!layer) return { U, F, R };
+  const [fU, fF, fR] = faces.map((face) =>
+    faceStickers(state, face).map((s) => !layer.values.includes(s.pos[layer.axis])),
+  ) as [boolean[], boolean[], boolean[]];
+  return { U, F, R, faded: { U: fU, F: fF, R: fR } };
+}
+
+/** A lesson or notation-guide picture, described by moves so it is always correct. */
+export interface CubeDiagramSpec {
+  /** Moves done from solved to reach the pictured state. */
+  setup?: string;
+  /** Or: the state this algorithm solves. */
+  solvedBy?: string;
+  /** Which pieces keep their colours (default all). */
+  show?: PieceMask;
+  /** 3D view (default) or the top-face view; `top-oll` shows only the top colour. */
+  view?: 'iso' | 'top' | 'top-oll';
+  /** Fades everything outside the layer this move turns. */
+  highlightMove?: MoveFamily;
 }

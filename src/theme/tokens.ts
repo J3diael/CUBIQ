@@ -17,8 +17,10 @@ export const palette = {
     timerReady: '#3DDC97',
     timerHolding: '#F5B83D',
     success: '#3DDC97',
+    successMuted: 'rgba(61, 220, 151, 0.14)',
     warning: '#F5B83D',
     danger: '#FF6B6B',
+    dangerMuted: 'rgba(255, 107, 107, 0.14)',
     overlay: 'rgba(0, 0, 0, 0.6)',
   },
   light: {
@@ -34,8 +36,10 @@ export const palette = {
     timerReady: '#12A86B',
     timerHolding: '#C98A0B',
     success: '#12A86B',
+    successMuted: 'rgba(18, 168, 107, 0.12)',
     warning: '#C98A0B',
     danger: '#D93838',
+    dangerMuted: 'rgba(217, 56, 56, 0.1)',
     overlay: 'rgba(17, 17, 22, 0.4)',
   },
 } as const;
