@@ -9,9 +9,10 @@ export interface ChipProps {
   /** Highlighted chips use the accent colour, e.g. the selected option or the active session. */
   selected?: boolean;
   onPress?: () => void;
+  accessibilityLabel?: string;
 }
 
-export function Chip({ label, selected = false, onPress }: ChipProps) {
+export function Chip({ label, selected = false, onPress, accessibilityLabel }: ChipProps) {
   const theme = useTheme();
   const style = {
     paddingHorizontal: theme.spacing.sm,
@@ -30,6 +31,7 @@ export function Chip({ label, selected = false, onPress }: ChipProps) {
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
       accessibilityState={{ selected }}
       onPress={onPress}
       hitSlop={6}

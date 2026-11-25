@@ -3,7 +3,7 @@ import { Trash2 } from 'lucide-react-native';
 
 import { Chip, IconButton, Text } from '@/components/ui';
 import type { Penalty } from '@/lib/timer';
-import type { Solve } from '@/store/solves-store';
+import type { Solve } from '@/types/models';
 import { useTheme } from '@/theme';
 
 interface LastSolveActionsProps {

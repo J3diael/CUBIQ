@@ -1,6 +1,7 @@
 import type { PuzzleId } from '@/constants/puzzles';
 
 export interface Scramble {
+  id: string;
   puzzleId: PuzzleId;
   notation: string;
   /** Epoch milliseconds when the scramble was generated. */
@@ -9,8 +10,17 @@ export interface Scramble {
 
 export type GenerateFn = (puzzleId: PuzzleId) => Promise<string>;
 
+/** Optional storage so ready scrambles survive an app restart. */
+export interface ScramblePersistence {
+  load(puzzleId: PuzzleId): Scramble[];
+  add(scramble: Scramble): void;
+  remove(id: string): void;
+}
+
 export interface ScrambleQueueOptions {
   generate: GenerateFn;
+  persistence?: ScramblePersistence;
+  createId?: () => string;
   /** How many ready scrambles to keep per puzzle. */
   targetSize?: number;
   now?: () => number;
@@ -25,6 +35,9 @@ export class ScrambleQueue {
   private readonly generate: GenerateFn;
   private readonly targetSize: number;
   private readonly now: () => number;
+  private readonly persistence: ScramblePersistence | undefined;
+  private readonly createId: () => string;
+  private loaded = new Set<PuzzleId>();
   private ready = new Map<PuzzleId, Scramble[]>();
   private waiting = new Map<PuzzleId, ((s: Scramble) => void)[]>();
   private failures = new Map<PuzzleId, ((e: Error) => void)[]>();
@@ -34,23 +47,52 @@ export class ScrambleQueue {
     this.generate = options.generate;
     this.targetSize = options.targetSize ?? 3;
     this.now = options.now ?? Date.now;
+    this.persistence = options.persistence;
+    let counter = 0;
+    this.createId = options.createId ?? (() => `scramble-${Date.now()}-${++counter}`);
+  }
+
+  /** Loads saved scrambles for a puzzle the first time it is used. */
+  private ensureLoaded(puzzleId: PuzzleId): void {
+    if (this.loaded.has(puzzleId)) return;
+    this.loaded.add(puzzleId);
+    if (!this.persistence) return;
+    try {
+      const saved = this.persistence.load(puzzleId);
+      if (saved.length) this.ready.set(puzzleId, [...saved, ...(this.ready.get(puzzleId) ?? [])]);
+    } catch {
+      // A storage problem only means generating fresh scrambles.
+    }
+  }
+
+  private persist(action: () => void): void {
+    try {
+      action();
+    } catch {
+      // Losing a queued scramble is harmless; never block the timer on storage.
+    }
   }
 
   /** Number of ready scrambles for a puzzle. */
   size(puzzleId: PuzzleId): number {
+    this.ensureLoaded(puzzleId);
     return this.ready.get(puzzleId)?.length ?? 0;
   }
 
   /** Starts filling the queue for a puzzle without taking anything. */
   prefill(puzzleId: PuzzleId): void {
+    this.ensureLoaded(puzzleId);
     void this.pump(puzzleId);
   }
 
   /** Returns the next scramble, waiting for generation only if none is ready. */
   take(puzzleId: PuzzleId): Promise<Scramble> {
+    this.ensureLoaded(puzzleId);
     const list = this.ready.get(puzzleId);
     const next = list?.shift();
     if (next) {
+      // Removed from storage the moment it is handed out, so it is never shown twice.
+      this.persist(() => this.persistence?.remove(next.id));
       void this.pump(puzzleId);
       return Promise.resolve(next);
     }
@@ -83,13 +125,19 @@ export class ScrambleQueue {
       try {
         while (this.needed(puzzleId) > 0) {
           const notation = await this.generate(puzzleId);
-          const scramble: Scramble = { puzzleId, notation, generatedAt: this.now() };
+          const scramble: Scramble = {
+            id: this.createId(),
+            puzzleId,
+            notation,
+            generatedAt: this.now(),
+          };
           const resolve = this.waiting.get(puzzleId)?.shift();
           if (resolve) {
             this.failures.get(puzzleId)?.shift();
             resolve(scramble);
           } else {
             this.push(this.ready, puzzleId, scramble);
+            this.persist(() => this.persistence?.add(scramble));
           }
         }
       } catch (error) {

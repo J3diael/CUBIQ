@@ -23,13 +23,15 @@ export interface UseTimerOptions {
   config: TimerConfig;
   /** Called once per finished solve. `wasInterrupted` is true if the app was backgrounded mid-solve. */
   onSolve: (result: SolveResult, wasInterrupted: boolean) => void;
+  /** Called when a solve starts running (true) and when it stops or is abandoned (false). */
+  onRunningChange?: (running: boolean) => void;
 }
 
 /**
  * Connects the pure timer state machine to touches, the clock, haptics, the app
  * lifecycle and the Android back button. All solve timing happens in the reducer.
  */
-export function useTimer({ config, onSolve }: UseTimerOptions) {
+export function useTimer({ config, onSolve, onRunningChange }: UseTimerOptions) {
   const [state, setState] = useState<TimerState>(initialTimerState);
   const dispatch = useCallback(
     (event: TimerEvent) => setState((current) => timerReducer(current, event, config)),
@@ -39,6 +41,7 @@ export function useTimer({ config, onSolve }: UseTimerOptions) {
   const handleSolve = useEffectEvent((result: SolveResult) =>
     onSolve(result, interruptedRef.current),
   );
+  const handleRunningChange = useEffectEvent((running: boolean) => onRunningChange?.(running));
 
   // Touch handlers take the timestamp first, before any other work.
   const pressIn = useCallback(() => dispatch({ type: 'pressIn', at: now() }), [dispatch]);
@@ -68,11 +71,15 @@ export function useTimer({ config, onSolve }: UseTimerOptions) {
     previousStatus.current = state.status;
     if (previous === state.status) return;
     if (state.status === 'ready') playHaptic('ready');
-    if (state.status === 'running') interruptedRef.current = false;
+    if (state.status === 'running') {
+      interruptedRef.current = false;
+      handleRunningChange(true);
+    }
     if (state.status === 'stopped') {
       playHaptic('stop');
       handleSolve(state.result);
     }
+    if (previous === 'running') handleRunningChange(false);
   }, [state]);
 
   // Inspection warnings at 8 s and 12 s (for 15 s inspection).
