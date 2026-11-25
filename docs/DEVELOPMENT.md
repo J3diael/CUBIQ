@@ -10,9 +10,9 @@ The living checklist for CUBIQ: what is done, what is next, known issues, decisi
 | 2. Timer engine          | Functional 3x3 timer with scrambles, inspection, haptics | Done           |
 | 3. Database and sessions | Persistent solves, sessions, penalties, manual entry     | Done           |
 | 4. Statistics            | Ao3/Ao5/Ao12, PBs, charts, session analytics             | Done           |
-| 5. Training center       | CFOP algorithm database, flashcards, mastery             | Done (this PR) |
-| 6. Beginner learning     | Lessons, notation guide, progress                        | Next           |
-| 7. Polish and expansion  | Customisation, more puzzles, accessibility, performance  | Pending        |
+| 5. Training center       | CFOP algorithm database, flashcards, mastery             | Done           |
+| 6. Beginner learning     | Lessons, notation guide, progress                        | Done (this PR) |
+| 7. Polish and expansion  | Customisation, more puzzles, accessibility, performance  | Next           |
 
 ## Phase 1 checklist
 
@@ -97,11 +97,24 @@ The living checklist for CUBIQ: what is done, what is next, known issues, decisi
 - [x] 354 tests; Android bundle builds; every Train screen checked in Chromium
 - [ ] Check on a physical Android phone in Expo Go (needs you): diagrams look right, flashcards flow
 
-## Next up: Phase 6
+## Phase 6 checklist
 
-1. Beginner method course as typed lesson content.
-2. Notation guide using the cube model and diagrams from Phase 5.
-3. Lesson progress saved in SQLite.
+- [x] Beginner course in `src/content/lessons`: 11 lessons (meet the cube, reading moves, the plan, then the eight steps of the layer-by-layer method: daisy, white cross, white corners, middle edges, yellow cross, yellow face, yellow corners, last edges)
+- [x] Every lesson picture is computed by the cube model from moves (with pieces greyed out to focus attention), so it can't be wrong
+- [x] Tests follow each step's written instructions on the cube model and check they work: the cross from the daisy, white corners in at most five repeats, both middle-edge sequences, the yellow cross from all 57 orientations, the yellow face from all of them, and corners plus edges from all 21 permutations in every starting turn
+- [x] Tests check that each diagram matches its caption (for example "headlights at the back", "L at the back left")
+- [x] Lesson screen: steps with Back/Next, then practice questions with instant feedback and an explanation; a summary with the score and a link to the next lesson
+- [x] Course screen: progress bar, "Start" / "Continue" to the first unfinished lesson, completed lessons with best score
+- [x] Notation guide: face turns, primes and doubles, wide turns, slices and rotations, each with before and after pictures; every direction description is checked by a test
+- [x] Lesson progress saved in SQLite (`lesson_progress`): step reached, first completion, best score, attempts
+- [x] 380 tests; Android bundle builds; course, lessons and notation guide checked in Chromium
+- [ ] Check on a physical Android phone in Expo Go (needs you)
+
+## Next up: Phase 7
+
+1. Remaining timer customisations (font size, display format, colour, background, sound, orientation).
+2. Goals, more puzzle types, accessibility and performance passes.
+3. Full regression testing.
 
 ## Known bugs and limitations
 
@@ -114,6 +127,7 @@ The living checklist for CUBIQ: what is done, what is next, known issues, decisi
 - The cube model proves that each algorithm is valid and that the cases in a set are all different. It can't prove that a case's name or number (for example "OLL 27" or "Ga") matches the community convention; those were assigned by hand and should be spot-checked.
 - F2L cases are numbered by CUBIQ's own grouping, not the speedsolving.com order. Their algorithms were found by a computer search for the shortest R, U, F solution, so they are short but not always the most finger-friendly.
 - Diagrams only cover the front-right F2L slot.
+- Lessons use still pictures, not animations. The notation guide shows each move as a before and after picture.
 - The web preview stores data in the browser (OPFS) and needs the COOP/COEP headers the dev server sends; Android is the real target.
 - App icon and splash image are still the Expo template images; a CUBIQ icon is needed before release.
 - On web, the Hermes-specific timing caveats don't apply; the timer must be verified on a real Android device.
@@ -121,25 +135,26 @@ The living checklist for CUBIQ: what is done, what is next, known issues, decisi
 
 ## Architectural decisions
 
-| Date       | Decision                                                                         | Why                                                                                             |
-| ---------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| 2026-11-25 | StyleSheet design system with typed tokens instead of NativeWind                 | Fewer build-time moving parts; no styling overhead on the timer screen                          |
-| 2026-11-25 | Custom JS tab bar (`expo-router/js-tabs`) instead of native tabs                 | Lucide icons, full theming, and the timer can hide the tab bar during a solve                   |
-| 2026-11-25 | Timer tab in the centre slot                                                     | Always one tap away from any tab                                                                |
-| 2026-11-25 | cubing.js scrambles will run in a hidden offline WebView                         | cubing.js scramble code needs module Web Workers and WebAssembly, which Hermes lacks            |
-| 2026-11-25 | Expo SQLite + Drizzle ORM (Phase 3)                                              | Typed schema, generated migrations, live queries; PostgreSQL dialect eases future Supabase sync |
-| 2026-11-25 | Victory Native + Skia for charts (Phase 4)                                       | Works in Expo Go, smooth gestures, themeable                                                    |
-| 2026-11-25 | UUID ids, epoch-ms timestamps, soft deletes on user tables                       | Makes later cloud sync incremental instead of a rewrite                                         |
-| 2026-11-25 | Built-in algorithms/lessons as typed content files; SQLite stores only user data | Content can grow without migrations                                                             |
-| 2026-11-25 | Derived values (final time, averages, goal progress) are computed, not stored    | Penalty edits can never leave stale numbers                                                     |
-| 2026-11-25 | Synchronous Drizzle queries; screens re-query after each write (`useDbQuery`)    | Simple and fast for one user's data; no live-query subscriptions to manage                      |
-| 2026-11-25 | Repository tests use better-sqlite3 with the same migrations                     | Real SQL (constraints, joins, transactions) runs in Jest without a device                       |
-| 2026-11-25 | The last session can't be deleted                                                | The timer always has somewhere to save a solve                                                  |
-| 2026-11-25 | A solve lost to a crash is offered back as a DNF with no time                    | The time is unknowable; inventing one would be fake data                                        |
-| 2026-11-25 | Our own small cube model instead of a library for diagrams and checks            | No new dependency; works in Jest; lets tests verify every built-in algorithm                    |
-| 2026-11-25 | Case diagrams are computed from the algorithm, not drawn by hand                 | A diagram can never disagree with its algorithm                                                 |
-| 2026-11-25 | F2L algorithms found by computer search (`scripts/generate-f2l.mjs`)             | Guaranteed correct and complete (all 41 cases); readable source of truth                        |
-| 2026-11-25 | Flashcards use a simplified SM-2 (Anki-style) schedule; mastery is computed      | Proven method; review history is stored, mastery never goes stale                               |
+| Date       | Decision                                                                              | Why                                                                                             |
+| ---------- | ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| 2026-11-25 | StyleSheet design system with typed tokens instead of NativeWind                      | Fewer build-time moving parts; no styling overhead on the timer screen                          |
+| 2026-11-25 | Custom JS tab bar (`expo-router/js-tabs`) instead of native tabs                      | Lucide icons, full theming, and the timer can hide the tab bar during a solve                   |
+| 2026-11-25 | Timer tab in the centre slot                                                          | Always one tap away from any tab                                                                |
+| 2026-11-25 | cubing.js scrambles will run in a hidden offline WebView                              | cubing.js scramble code needs module Web Workers and WebAssembly, which Hermes lacks            |
+| 2026-11-25 | Expo SQLite + Drizzle ORM (Phase 3)                                                   | Typed schema, generated migrations, live queries; PostgreSQL dialect eases future Supabase sync |
+| 2026-11-25 | Victory Native + Skia for charts (Phase 4)                                            | Works in Expo Go, smooth gestures, themeable                                                    |
+| 2026-11-25 | UUID ids, epoch-ms timestamps, soft deletes on user tables                            | Makes later cloud sync incremental instead of a rewrite                                         |
+| 2026-11-25 | Built-in algorithms/lessons as typed content files; SQLite stores only user data      | Content can grow without migrations                                                             |
+| 2026-11-25 | Derived values (final time, averages, goal progress) are computed, not stored         | Penalty edits can never leave stale numbers                                                     |
+| 2026-11-25 | Synchronous Drizzle queries; screens re-query after each write (`useDbQuery`)         | Simple and fast for one user's data; no live-query subscriptions to manage                      |
+| 2026-11-25 | Repository tests use better-sqlite3 with the same migrations                          | Real SQL (constraints, joins, transactions) runs in Jest without a device                       |
+| 2026-11-25 | The last session can't be deleted                                                     | The timer always has somewhere to save a solve                                                  |
+| 2026-11-25 | A solve lost to a crash is offered back as a DNF with no time                         | The time is unknowable; inventing one would be fake data                                        |
+| 2026-11-25 | Our own small cube model instead of a library for diagrams and checks                 | No new dependency; works in Jest; lets tests verify every built-in algorithm                    |
+| 2026-11-25 | Case diagrams are computed from the algorithm, not drawn by hand                      | A diagram can never disagree with its algorithm                                                 |
+| 2026-11-25 | F2L algorithms found by computer search (`scripts/generate-f2l.mjs`)                  | Guaranteed correct and complete (all 41 cases); readable source of truth                        |
+| 2026-11-25 | Beginner method: daisy, then yellow on top; corners by headlights, edges by a 3-cycle | Common in beginner guides; uses the same algorithms as 2-look PLL so nothing is unlearned later |
+| 2026-11-25 | Flashcards use a simplified SM-2 (Anki-style) schedule; mastery is computed           | Proven method; review history is stored, mastery never goes stale                               |
 
 The full architecture plan, schema and design system live in the CUBIQ architecture doc shared in the project.
 
@@ -168,4 +183,4 @@ The full architecture plan, schema and design system live in the CUBIQ architect
 | better-sqlite3, @types/better-sqlite3 (dev)                                       | Real SQLite for Jest tests                                    |
 | victory-native, @shopify/react-native-skia                                        | Charts (Phase 4)                                              |
 
-Phase 5 added no dependencies: the cube model, diagrams (react-native-svg) and spaced repetition are our own code.
+Phases 5 and 6 added no dependencies: the cube model, diagrams (react-native-svg) and spaced repetition are our own code.

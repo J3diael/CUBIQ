@@ -69,6 +69,12 @@ const MOVE_DEFS: Record<MoveFamily, { axis: Axis; layers: number[]; sign: 1 | -1
   z: { axis: 2, layers: [-1, 0, 1], sign: -1 },
 };
 
+/** The layers a move turns, e.g. R turns the layer with x = 1. */
+export function moveLayer(family: MoveFamily): { axis: Axis; values: number[] } {
+  const def = MOVE_DEFS[family];
+  return { axis: def.axis, values: def.layers };
+}
+
 /** Rotates a vector by sign × 90° about an axis (right-handed). */
 function rotate(v: Vec, axis: Axis, sign: 1 | -1): Vec {
   const [x, y, z] = v;

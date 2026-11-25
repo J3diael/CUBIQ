@@ -8,12 +8,16 @@ import {
   Library,
   Shapes,
   Sparkles,
+  Type,
   Zap,
 } from 'lucide-react-native';
 
 import { Button, Card, Chip, Divider, ListRow, Screen, SectionHeader, Text } from '@/components/ui';
+import { BEGINNER_COURSE } from '@/content/lessons';
+import { listLessonProgress } from '@/database/repositories/learning-repository';
 import { ALGORITHM_SET_ORDER, ALGORITHM_SETS, type AlgorithmSetId } from '@/content/algorithms';
 import { listCustomAlgorithms, listProgress } from '@/database/repositories/training-repository';
+import { courseSummary } from '@/features/learning/progress';
 import { useNow } from '@/hooks/use-now';
 import { useDbQuery } from '@/store/data-store';
 import { useTheme } from '@/theme';
@@ -29,6 +33,7 @@ export function TrainScreen() {
   const now = useNow();
   const summaries = ALGORITHM_SET_ORDER.map((id) => ({ id, ...summarizeSet(id, progress, now) }));
   const due = summaries.reduce((n, s) => n + s.due, 0);
+  const course = courseSummary(BEGINNER_COURSE, useDbQuery(listLessonProgress));
 
   return (
     <Screen title="Train" subtitle="Learn algorithms and build speed">
@@ -93,9 +98,20 @@ export function TrainScreen() {
         <Card flush>
           <ListRow
             title="Beginner course"
-            subtitle="Notation, layers and your first full solve"
+            subtitle={
+              course.completed === 0
+                ? 'Notation, layers and your first full solve'
+                : `${course.completed} of ${course.total} lessons completed`
+            }
             icon={BookOpen}
-            trailing={<Chip label="Phase 6" />}
+            onPress={() => router.push('/train/learn')}
+          />
+          <Divider inset={48} />
+          <ListRow
+            title="Notation guide"
+            subtitle="What R, U' and F2 mean, with pictures"
+            icon={Type}
+            onPress={() => router.push('/train/notation')}
           />
         </Card>
       </View>
